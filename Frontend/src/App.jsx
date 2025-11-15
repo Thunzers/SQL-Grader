@@ -1,13 +1,21 @@
-import Navbars from './components/Navbars'
-import React from 'react'
+import { useState } from "react";
+import Login from "./components/Login";
+import Dashboard from "./components/Dashboard";
 
+export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState("");  
 
-function App() {
   return (
-    <div>
-      <Navbars />
-    </div>
-  )
+    isLoggedIn ? 
+      <Dashboard 
+        setIsLoggedIn={setIsLoggedIn} 
+        userEmail={userEmail}             
+      /> 
+      : 
+      <Login 
+        setIsLoggedIn={setIsLoggedIn} 
+        setUserEmail={setUserEmail}       
+      />
+  );
 }
-
-export default App
