@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-export default function Login({ onLoginSuccess }) {
+export default function Login({ setIsLoggedIn, setUserEmail, setRole }) {
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
   // Google Login Initialization
   useEffect(() => {
@@ -30,12 +32,33 @@ export default function Login({ onLoginSuccess }) {
     const token = response.credential;
     const data = JSON.parse(atob(token.split(".")[1]));
 
-    // จำกัด domain
-    if (data.email.endsWith("@silpakorn.edu")) {
-      onLoginSuccess(data.email);  // ส่งกลับไป App.jsx
-    } else {
+    const email = data.email;
+
+    // เช็คโดเมน
+    if (!email.endsWith("@silpakorn.edu")) {
       alert("อนุญาตเฉพาะอีเมล @silpakorn.edu เท่านั้น");
+      return;
     }
+
+    // ⭐ เก็บ email
+    setUserEmail(email);
+
+    // ⭐ ระบุ role
+    if (email.includes("student")) {
+      setRole("student");
+      navigate("/student");
+    } 
+    else if (email.includes("teacher")) {
+      setRole("teacher");
+      navigate("/teacher");
+    } 
+    else {
+      setRole("admin");
+      navigate("/admin");
+    }
+
+    // ⭐ เซ็ต Login
+    setIsLoggedIn(true);
   }
 
   return (
@@ -53,33 +76,24 @@ export default function Login({ onLoginSuccess }) {
         {/* Login Form */}
         <form className="w-80 flex flex-col space-y-6">
 
+          {/* Username */}
           <input
             type="text"
             placeholder="ชื่อผู้ใช้"
             className="
-              w-full
-              p-3
-              rounded-xl
-              border border-gray-300
-              bg-white
-              text-black
-              focus:outline-none
+              w-full p-3 rounded-xl border border-gray-300
+              bg-white text-black focus:outline-none
             "
           />
 
+          {/* Password */}
           <div className="relative w-full">
             <input
               type={showPassword ? "text" : "password"}
               placeholder="รหัสผ่าน"
               className="
-                w-full
-                p-3
-                rounded-xl
-                border border-gray-300
-                bg-white
-                text-black
-                focus:outline-none
-                pr-12
+                w-full p-3 rounded-xl border border-gray-300
+                bg-white text-black focus:outline-none pr-12
               "
             />
 
@@ -92,36 +106,36 @@ export default function Login({ onLoginSuccess }) {
             </button>
           </div>
 
+          {/* Forgot Password */}
           <div className="w-full text-right -mt-4 text-sm">
             <a href="#" className="text-white/80 hover:underline">
               Forgot password?
             </a>
           </div>
 
-          {/* Local Login */}
+          {/* Normal Login Button */}
           <button
             type="button"
             onClick={() => {
-              const mockEmail = "tch001@silpakorn.edu"; // จำลอง student
-             // const mockEmail = "tch001@silpakorn.edu"; 
-             // const mockEmail = "admin001@silpakorn.edu"; 
-              onLoginSuccess(mockEmail);
+              const email = "localstudent@silpakorn.edu";
+
+              setUserEmail(email);
+
+              // ⭐ ตั้ง role แบบจำลอง
+              setRole("student");
+              setIsLoggedIn(true);
+              navigate("/student");
             }}
             className="
-              w-full
-              bg-white 
-              text-black
-              py-3
-              rounded-xl
-              font-semibold
-              hover:bg-gray-100
-              transition
+              w-full bg-white text-black py-3 rounded-xl font-semibold
+              hover:bg-gray-100 transition
             "
           >
             เข้าสู่ระบบ/Login
           </button>
         </form>
 
+        {/* Google Login */}
         <div className="mt-10 text-sm text-white/80">
           Log in using your account on:
         </div>
