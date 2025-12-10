@@ -1,83 +1,116 @@
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from flask import Flask, request, jsonify
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from flask_cors import CORS
 
-# กำหนด Client ID ของคุณ
-CLIENT_ID = "34276681645-qljcgh9b3fgub935akbstuduj3f43p5v.apps.googleusercontent.com"
+# --- CONFIG DATABASE ---
+DB_HOST = "localhost"
+DB_NAME = "grader_db"
+DB_USER = "postgres"
+DB_PASS = "zxc123456"
+DB_PORT = "5432"
+
+CLIENT_ID = "673421095892-krkp5se2jipkdpmbdfohbk39etq1klcb.apps.googleusercontent.com"
 
 app = Flask(__name__)
-# อนุญาต CORS สำหรับทุกโดเมน (เพื่อให้เหมือนกับ Express `cors()`)
 CORS(app)
 
-# สร้าง request object สำหรับการตรวจสอบ Token
 request_google = requests.Request()
 
+ALLOWED_DOMAINS = ["@silpakorn.edu"] 
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS, port=DB_PORT
+        )
+        return conn
+    except Exception as e:
+        print("Database connection failed:", e)
+        return None
+
+# --- API 1: Google Login ---
 @app.route("/auth/google", methods=["POST"])
 def google_auth():
-    """ตรวจสอบ Google ID Token และจำกัดอีเมลเฉพาะ @silpakorn.edu"""
-    
-    # 1. ตรวจสอบว่ามี JSON payload และ 'token' อยู่ใน body หรือไม่
     data = request.get_json()
-    if not data or 'token' not in data:
-        return jsonify({
-            "success": False, 
-            "error": "ไม่พบ ID Token ในคำขอ"
-        }), 400
+    token = data.get('token')
+    
+    # ⭐️ เพิ่มบรรทัดนี้เพื่อดู Token ที่ได้รับใน Terminal
+    print(f"Token ที่ได้รับ: {token}")
 
-    token = data['token']
+    if not token:
+        return jsonify({"success": False, "error": "No token provided"}), 400
 
     try:
-        # 2. ตรวจสอบ ID Token
-        # ตรวจสอบ ID Token โดยใช้ Client ID ที่กำหนดไว้
-        # `id_token.verify_oauth2_token` จะตรวจสอบลายเซ็น, หมดอายุ, และ audience (client_id)
+        
         payload = id_token.verify_oauth2_token(
             token, 
             request_google, 
-            CLIENT_ID
+            CLIENT_ID, 
+            clock_skew_in_seconds=10
         )
-
-        # 3. ดึงอีเมลจาก Payload
-        email = payload.get('email')
         
-        if not email:
-             return jsonify({
-                "success": False, 
-                "error": "ไม่พบอีเมลใน Token"
-            }), 400
+        email = payload.get('email')
+        is_allowed = not ALLOWED_DOMAINS or any(email.endswith(domain) for domain in ALLOWED_DOMAINS)
+        
+        if email and is_allowed:
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                sql = """
+                    INSERT INTO users (email, role) 
+                    VALUES (%s, 'student') 
+                    ON CONFLICT (email) DO NOTHING;
+                """
+                cur.execute(sql, (email,))
+                conn.commit()
+                cur.close()
+                conn.close()
+                print(f"✅ User saved/checked: {email}")
 
-        # 4. ตรวจอีเมลให้ถูกต้อง (จำกัดเฉพาะ @silpakorn.edu)
-        if email.endswith("@silpakorn.edu"):
-            # อนุญาต
-            return jsonify({
-                "success": True, 
-                "email": email
-            }), 200
+            return jsonify({"success": True, "email": email}), 200
         else:
-            # ไม่อนุญาต
             return jsonify({
-                "success": False,
-                "error": "อนุญาตเฉพาะอีเมล @silpakorn.edu เท่านั้น"
+                "success": False, 
+                "error": f"อนุญาตเฉพาะอีเมลโดเมน: {', '.join(ALLOWED_DOMAINS)}"
             }), 403
             
-    except ValueError as error:
-        # 5. จัดการข้อผิดพลาดในการตรวจสอบ Token
-        # เช่น Token ไม่ถูกต้อง, หมดอายุ, หรือ Client ID ไม่ตรง
-        print(f"Token Verification Error: {error}")
-        return jsonify({
-            "success": False, 
-            "error": "Token ไม่ถูกต้อง"
-        }), 400
+    except ValueError as e:
+        print(f"❌ Token Verification Error: {e}") 
+        return jsonify({"success": False, "error": f"Invalid token: {str(e)}"}), 400
+        
     except Exception as e:
-        # จัดการข้อผิดพลาดอื่น ๆ ที่ไม่คาดคิด
-        print(f"Unexpected Error: {e}")
-        return jsonify({
-            "success": False, 
-            "error": "เกิดข้อผิดพลาดภายใน"
-        }), 500
+        print(f"Error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route("/api/users", methods=["GET"])
+def get_users():
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM users ORDER BY id DESC;")
+    users = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify(users), 200
+
+@app.route("/api/classes", methods=["GET"])
+def get_classes():
+    conn = get_db_connection()
+    if conn:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute('SELECT * FROM classes;')
+        classes = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(classes), 200
+    else:
+        return jsonify([]), 500
 
 if __name__ == "__main__":
-    # รัน Flask server บน http://localhost:3000
     print("✅ Backend running on http://localhost:3000")
-    app.run(port=3000)
+    app.run(port=3000, debug=True)

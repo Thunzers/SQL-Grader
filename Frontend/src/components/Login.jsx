@@ -3,15 +3,22 @@ import { Eye, EyeOff } from "lucide-react";
 
 export default function Login({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
+  
+  // 1. State สำหรับเก็บค่าที่พิมพ์
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  
+  // 2. State สำหรับจัดการสถานะการโหลดและ Error
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(""); 
 
   // Google Login Initialization
   useEffect(() => {
-    if (!window.google) return;
+    if (typeof window === 'undefined' || !window.google) return; 
 
     window.google.accounts.id.initialize({
-      client_id:
-        "34276681645-qljcgh9b3fgub935akbstuduj3f43p5v.apps.googleusercontent.com",
-      callback: handleCredentialResponse,
+      client_id: "673421095892-krkp5se2jipkdpmbdfohbk39etq1klcb.apps.googleusercontent.com",
+      callback: handleGoogleLogin, 
     });
 
     window.google.accounts.id.renderButton(
@@ -23,66 +30,94 @@ export default function Login({ onLoginSuccess }) {
         width: 250,
       }
     );
-  }, []);
+  }, []); 
 
-  // Google Login Response
-  function handleCredentialResponse(response) {
+  const handleGoogleLogin = async (response) => {
     const token = response.credential;
-    const data = JSON.parse(atob(token.split(".")[1]));
+    setIsLoading(true);
+    setErrorMsg("");
 
-    // จำกัด domain
-    if (data.email.endsWith("@silpakorn.edu")) {
-      onLoginSuccess(data.email);  // ส่งกลับไป App.jsx
-    } else {
-      alert("อนุญาตเฉพาะอีเมล @silpakorn.edu เท่านั้น");
+    try {
+      const res = await fetch("http://localhost:3000/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: token }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        console.log("Google Login สำเร็จ:", data.email);
+        onLoginSuccess(data.email); 
+      } else {
+        setErrorMsg(data.error || "Login failed (Unknown Error from Server)"); 
+      }
+    } catch (err) {
+      console.error("Error logging in:", err);
+      setErrorMsg("ไม่สามารถเชื่อมต่อ Server ได้ (โปรดตรวจสอบว่ารัน Server Python ที่ http://localhost:3000 อยู่)");
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
+
+  // ⭐️ Manual Login (Mock) - แก้ไขส่วนนี้
+  const handleManualLogin = async (e) => {
+    e.preventDefault(); 
+    setErrorMsg("");
+    
+    if (!email || !password) {
+      setErrorMsg("กรุณากรอกอีเมลและรหัสผ่าน");
+      return;
+    }
+
+    setIsLoading(true); 
+
+    
+    await new Promise(resolve => setTimeout(resolve, 1000)); 
+      
+    
+    if (email.endsWith("@silpakorn.edu") || email === "admin" || email === "teacher") {
+        console.log("Manual Login (Mock) สำเร็จ:", email);
+        onLoginSuccess(email);
+    } else {
+        // อัปเดตข้อความ Error
+        setErrorMsg("อนุญาตเฉพาะอีเมล @silpakorn.edu");
+    }
+      
+    setIsLoading(false); 
+  };
 
   return (
     <div className="flex h-screen font-sans">
-
+    
       {/* Left Section */}
       <div className="w-1/2 flex flex-col justify-center items-center bg-white">
         <h1 className="text-9xl font-semibold text-teal-700">Grader</h1>
         <h2 className="text-9xl font-semibold text-teal-700 mt-2">SQL</h2>
       </div>
-
+      
       {/* Right Section */}
       <div className="w-1/2 bg-[#00796b] flex flex-col justify-center items-center text-white">
 
-        {/* Login Form */}
-        <form className="w-80 flex flex-col space-y-6">
+        <form className="w-80 flex flex-col space-y-6" onSubmit={handleManualLogin}>
 
           <input
-            type="text"
-            placeholder="ชื่อผู้ใช้"
-            className="
-              w-full
-              p-3
-              rounded-xl
-              border border-gray-300
-              bg-white
-              text-black
-              focus:outline-none
-            "
+            type="text" 
+            placeholder="อีเมล (@silpakorn.edu)" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            className="w-full p-3 rounded-xl border border-gray-300 bg-white text-black focus:outline-none"
           />
 
           <div className="relative w-full">
             <input
               type={showPassword ? "text" : "password"}
               placeholder="รหัสผ่าน"
-              className="
-                w-full
-                p-3
-                rounded-xl
-                border border-gray-300
-                bg-white
-                text-black
-                focus:outline-none
-                pr-12
-              "
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              className="w-full p-3 rounded-xl border border-gray-300 bg-white text-black focus:outline-none pr-12"
             />
-
+            
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
@@ -98,27 +133,21 @@ export default function Login({ onLoginSuccess }) {
             </a>
           </div>
 
-          {/* Local Login */}
+          {errorMsg && (
+            <div className="bg-red-500/20 border border-red-500 text-red-100 p-3 rounded-lg text-sm text-center">
+              {errorMsg}
+            </div>
+          )}
+
           <button
-            type="button"
-            onClick={() => {
-              const mockEmail = "tch001@silpakorn.edu"; // จำลอง student
-             // const mockEmail = "tch001@silpakorn.edu"; 
-             // const mockEmail = "admin001@silpakorn.edu"; 
-              onLoginSuccess(mockEmail);
-            }}
-            className="
-              w-full
-              bg-white 
-              text-black
-              py-3
-              rounded-xl
-              font-semibold
-              hover:bg-gray-100
-              transition
-            "
+            type="submit"
+            disabled={isLoading}
+            className={`
+              w-full bg-white text-black py-3 rounded-xl font-semibold hover:bg-gray-100 transition
+              ${isLoading ? "opacity-50 cursor-not-allowed" : ""}
+            `}
           >
-            เข้าสู่ระบบ/Login
+            {isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ/Login"}
           </button>
         </form>
 

@@ -1,14 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, LogOut, User } from "lucide-react";
 
 export default function Dashboard({ setIsLoggedIn, userEmail }) {
   const [openProfile, setOpenProfile] = useState(false);
+  
+  // 1. สร้าง State สำหรับเก็บข้อมูลวิชาเรียน
+  const [classes, setClasses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // ข้อมูลวิชาแบบตัวอย่าง
-  const classes = [
-    { code: "COM 1", name: "MATRIX", section: 5, sem: "1/2025" },
-    { code: "SQL 2", name: "SEQUENCES AND SERIES", section: 5, sem: "2/2025" },
-  ];
+  // 2. ใช้ useEffect ดึงข้อมูลจาก Python Backend เมื่อหน้าเว็บโหลด
+  useEffect(() => {
+    fetch("http://localhost:3000/api/classes")
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Network response was not ok");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Loaded classes:", data);
+        setClasses(data); // บันทึกข้อมูลลง State
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching classes:", error);
+        setIsLoading(false);
+      });
+  }, []);
 
   return (
     <div className="min-h-screen bg-white">
@@ -24,11 +42,11 @@ export default function Dashboard({ setIsLoggedIn, userEmail }) {
               <span>SQL</span>
             </div>
           </div>
-
+        {/*   ---------------------------------------------------------------------------------------
           <div className="flex gap-6 text-sm opacity-80">
             <button className="hover:opacity-100 transition">Community</button>
             <button className="hover:opacity-100 transition">Support</button>
-          </div>
+          </div> */ }
         </div>
 
         {/* User Profile */}
@@ -88,9 +106,24 @@ export default function Dashboard({ setIsLoggedIn, userEmail }) {
         {/* CLASS GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
 
-          {classes.map((c, idx) => (
+          {/* Loading State */}
+          {isLoading && (
+            <div className="col-span-full text-center py-10 text-gray-500">
+              กำลังโหลดข้อมูลวิชาจาก Database...
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && classes.length === 0 && (
+            <div className="col-span-full text-center py-10 text-gray-500">
+              ไม่พบวิชาเรียนในระบบ (ตรวจสอบ Database หรือ Server)
+            </div>
+          )}
+
+          {/* Loop Data */}
+          {classes.map((c) => (
             <div
-              key={idx}
+              key={c.id || c.code} 
               className="bg-white rounded-xl shadow border border-gray-200 hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
             >
               {/* HEADER BLOCK */}
@@ -101,10 +134,7 @@ export default function Dashboard({ setIsLoggedIn, userEmail }) {
                 </div>
                 <div className="flex gap-2">
                   <span className="bg-green-500 text-white px-2 py-1 text-xs rounded">
-                    Passed
-                  </span>
-                  <span className="bg-blue-500 text-white px-2 py-1 text-xs rounded">
-                    OBEM
+                    Active
                   </span>
                 </div>
               </div>
@@ -112,7 +142,8 @@ export default function Dashboard({ setIsLoggedIn, userEmail }) {
               {/* Footer */}
               <div className="flex justify-between px-4 py-3 text-sm text-gray-800">
                 <span>Section {c.section}</span>
-                <span>Semester {c.sem}</span>
+                {/* แก้ sem เป็น semester ให้ตรงกับ Database */}
+                <span>Semester {c.semester}</span>
               </div>
             </div>
           ))}
