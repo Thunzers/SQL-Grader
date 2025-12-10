@@ -28,7 +28,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
           <div className="flex gap-6 text-sm opacity-80">
             <button className="hover:opacity-100">My Courses</button>
             <button className="hover:opacity-100">Assignments</button>
-            <button className="hover:opacity-100">Students</button>
           </div>
         </div>
 

@@ -79,7 +79,7 @@ export default function Login({ onLoginSuccess }) {
     if (email.endsWith("@silpakorn.edu") || email === "admin" || email === "teacher") {
         console.log("Manual Login (Mock) สำเร็จ:", email);
         
-        // กำหนด Role หลอกๆ สำหรับเทส (ถ้าพิมพ์ admin ในช่อง email ก็ให้เป็น admin)
+        
         let role = "student";
         if (email === "admin") role = "admin";
         if (email === "teacher") role = "teacher";

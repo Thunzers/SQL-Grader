@@ -10,7 +10,7 @@ export default function App() {
   const [userEmail, setUserEmail] = useState("");
   const [role, setRole] = useState("");
 
-  // ❌ ลบ function detectRole ออกได้เลยครับ เพราะเราใช้ค่าจริงจาก DB แล้ว
+  
 
   // ✅ แก้ไข: รับค่า email และ role ที่ส่งมาจาก Login.jsx
   function handleLoginSuccess(email, userRole) {
