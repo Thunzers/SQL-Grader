@@ -44,7 +44,6 @@ def google_auth():
         return jsonify({"success": False, "error": "No token provided"}), 400
 
     try:
-        
         payload = id_token.verify_oauth2_token(
             token, 
             request_google, 
@@ -59,6 +58,8 @@ def google_auth():
             conn = get_db_connection()
             if conn:
                 cur = conn.cursor()
+                
+                # 1. Insert หรือ Ignore ถ้ามีอยู่แล้ว
                 sql = """
                     INSERT INTO users (email, role) 
                     VALUES (%s, 'student') 
@@ -66,11 +67,23 @@ def google_auth():
                 """
                 cur.execute(sql, (email,))
                 conn.commit()
+
+                # 2. SELECT เพื่อเอา Role ที่แท้จริงออกมา
+                cur.execute("SELECT role FROM users WHERE email = %s", (email,))
+                user_data = cur.fetchone()
+                role = user_data[0] if user_data else "student"
+
                 cur.close()
                 conn.close()
-                print(f"✅ User saved/checked: {email}")
+                
+                print(f"✅ User saved/checked: {email} | Role: {role}")
 
-            return jsonify({"success": True, "email": email}), 200
+                # 3. ส่ง role กลับไปด้วย
+                return jsonify({
+                    "success": True, 
+                    "email": email, 
+                    "role": role 
+                }), 200
         else:
             return jsonify({
                 "success": False, 

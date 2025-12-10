@@ -10,22 +10,15 @@ export default function App() {
   const [userEmail, setUserEmail] = useState("");
   const [role, setRole] = useState("");
 
-  // ฟังก์ชันกำหนด role จาก email
-  function detectRole(email) {
-    const prefix = email.split("@")[0].toLowerCase();
+  // ❌ ลบ function detectRole ออกได้เลยครับ เพราะเราใช้ค่าจริงจาก DB แล้ว
 
-    if (prefix.includes("admin")) return "admin";
-    if (prefix.includes("tch") || prefix.includes("teach")) return "teacher";
-    if (prefix.includes("std") || prefix.includes("student")) return "student";
-
-    return "student"; // default
-  }
-
-  // เมื่อ login สำเร็จ
-  function handleLoginSuccess(email) {
+  // ✅ แก้ไข: รับค่า email และ role ที่ส่งมาจาก Login.jsx
+  function handleLoginSuccess(email, userRole) {
     setUserEmail(email);
-    setRole(detectRole(email));  // ⭐ ใช้ detectRole ใหม่
+    setRole(userRole); // เซ็ต Role ตามที่ Database ส่งมา
     setIsLoggedIn(true);
+    
+    console.log("App Login:", email, "| Role:", userRole); // เช็คค่าใน Console
   }
 
   // Logout
@@ -35,17 +28,17 @@ export default function App() {
     setIsLoggedIn(false);
   }
 
-  // เลือก dashboard
+  
   function renderDashboard() {
-    if (role === "student")
-      return <StudentDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} />;
-
-    if (role === "teacher")
+    if (role === "teacher") {
       return <TeacherDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} />;
+    }
 
-    if (role === "admin")
+    if (role === "admin") {
       return <AdminDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} />;
+    }
 
+    
     return <StudentDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} />;
   }
 

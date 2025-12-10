@@ -47,8 +47,9 @@ export default function Login({ onLoginSuccess }) {
       const data = await res.json();
 
       if (data.success) {
-        console.log("Google Login สำเร็จ:", data.email);
-        onLoginSuccess(data.email); 
+        console.log("Google Login สำเร็จ:", data.email, "| Role:", data.role);
+        // ⭐️ แก้ไข: ส่งทั้ง email และ role ไปให้ App ตัวแม่จัดการต่อ
+        onLoginSuccess(data.email, data.role); 
       } else {
         setErrorMsg(data.error || "Login failed (Unknown Error from Server)"); 
       }
@@ -60,7 +61,7 @@ export default function Login({ onLoginSuccess }) {
     }
   };
 
-  // ⭐️ Manual Login (Mock) - แก้ไขส่วนนี้
+  // ⭐️ Manual Login (Mock) - แก้ไขให้ส่ง Role ไปด้วย
   const handleManualLogin = async (e) => {
     e.preventDefault(); 
     setErrorMsg("");
@@ -72,15 +73,20 @@ export default function Login({ onLoginSuccess }) {
 
     setIsLoading(true); 
 
-    
     await new Promise(resolve => setTimeout(resolve, 1000)); 
       
-    
+    // Mock Logic สำหรับเช็ค Role เพื่อการทดสอบ
     if (email.endsWith("@silpakorn.edu") || email === "admin" || email === "teacher") {
         console.log("Manual Login (Mock) สำเร็จ:", email);
-        onLoginSuccess(email);
+        
+        // กำหนด Role หลอกๆ สำหรับเทส (ถ้าพิมพ์ admin ในช่อง email ก็ให้เป็น admin)
+        let role = "student";
+        if (email === "admin") role = "admin";
+        if (email === "teacher") role = "teacher";
+
+        // ⭐️ ส่ง role ไปด้วย
+        onLoginSuccess(email, role);
     } else {
-        // อัปเดตข้อความ Error
         setErrorMsg("อนุญาตเฉพาะอีเมล @silpakorn.edu");
     }
       
