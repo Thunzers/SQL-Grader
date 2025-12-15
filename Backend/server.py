@@ -5,7 +5,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 from flask_cors import CORS
 
-# --- CONFIG DATABASE ---
+# DATABASE 
 DB_HOST = "localhost"
 DB_NAME = "grader_db"
 DB_USER = "postgres"
@@ -31,14 +31,14 @@ def get_db_connection():
         print("Database connection failed:", e)
         return None
 
-# --- API 1: Google Login ---
+# Google Login 
 @app.route("/auth/google", methods=["POST"])
 def google_auth():
     data = request.get_json()
     token = data.get('token')
     
-    # ⭐️ เพิ่มบรรทัดนี้เพื่อดู Token ที่ได้รับใน Terminal
-    print(f"Token ที่ได้รับ: {token}")
+  
+    print(f"Token = : {token}")
 
     if not token:
         return jsonify({"success": False, "error": "No token provided"}), 400
@@ -59,7 +59,7 @@ def google_auth():
             if conn:
                 cur = conn.cursor()
                 
-                # 1. Insert หรือ Ignore ถ้ามีอยู่แล้ว
+                # Insert 
                 sql = """
                     INSERT INTO users (email, role) 
                     VALUES (%s, 'student') 
@@ -68,7 +68,7 @@ def google_auth():
                 cur.execute(sql, (email,))
                 conn.commit()
 
-                # 2. SELECT เพื่อเอา Role ที่แท้จริงออกมา
+                
                 cur.execute("SELECT role FROM users WHERE email = %s", (email,))
                 user_data = cur.fetchone()
                 role = user_data[0] if user_data else "student"
@@ -78,7 +78,7 @@ def google_auth():
                 
                 print(f"✅ User saved/checked: {email} | Role: {role}")
 
-                # 3. ส่ง role กลับไปด้วย
+                
                 return jsonify({
                     "success": True, 
                     "email": email, 
@@ -91,13 +91,14 @@ def google_auth():
             }), 403
             
     except ValueError as e:
-        print(f"❌ Token Verification Error: {e}") 
+        print(f"Token Verification Error: {e}") 
         return jsonify({"success": False, "error": f"Invalid token: {str(e)}"}), 400
         
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+# Get All Users 
 @app.route("/api/users", methods=["GET"])
 def get_users():
     conn = get_db_connection()
@@ -105,11 +106,40 @@ def get_users():
         return jsonify({"error": "Database error"}), 500
     
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM users ORDER BY id DESC;")
+    cur.execute("SELECT * FROM users ORDER BY id ASC;") 
     users = cur.fetchall()
     cur.close()
     conn.close()
     return jsonify(users), 200
+
+# Update User Role 
+@app.route("/api/users/<int:id>/role", methods=["PUT"])
+def update_user_role(id):
+    data = request.get_json()
+    new_role = data.get("role")
+
+    if not new_role:
+        return jsonify({"error": "Role is required"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database connection failed"}), 500
+
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET role = %s WHERE id = %s", (new_role, id))
+        conn.commit()
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Role updated successfully", "success": True}), 200
+    except Exception as e:
+        print(f"Error updating role: {e}")
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/classes", methods=["GET"])
 def get_classes():
@@ -125,5 +155,5 @@ def get_classes():
         return jsonify([]), 500
 
 if __name__ == "__main__":
-    print("✅ Backend running on http://localhost:3000")
-    app.run(port=3000, debug=True)
+    print("Backend running on http://localhost:5000")
+    app.run(port=5000, debug=True)
