@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from datetime import datetime, date, time
+from decimal import Decimal
 
 # --- CONFIG DATABASE ---
 DB_HOST = "localhost"
@@ -122,7 +124,21 @@ def get_users():
     users = cur.fetchall()
     cur.close()
     conn.close()
-    return JSONResponse(users, status_code=200)
+    # Convert DB types (datetime, date, time, Decimal) to JSON-serializable
+    serial = []
+    for row in users:
+        r = dict(row)
+        for k, v in list(r.items()):
+            if isinstance(v, (datetime, date, time)):
+                r[k] = v.isoformat()
+            elif isinstance(v, Decimal):
+                # convert Decimal to float when possible
+                try:
+                    r[k] = float(v)
+                except Exception:
+                    r[k] = str(v)
+        serial.append(r)
+    return JSONResponse(serial, status_code=200)
 
 # Update User Role
 @app.put("/api/users/{id}/role")
@@ -172,12 +188,25 @@ def get_classes():
         classes = cur.fetchall()
         cur.close()
         conn.close()
-        return JSONResponse(classes, status_code=200)
+        # serialize DB types
+        serial = []
+        for row in classes:
+            r = dict(row)
+            for k, v in list(r.items()):
+                if isinstance(v, (datetime, date, time)):
+                    r[k] = v.isoformat()
+                elif isinstance(v, Decimal):
+                    try:
+                        r[k] = float(v)
+                    except Exception:
+                        r[k] = str(v)
+            serial.append(r)
+        return JSONResponse(serial, status_code=200)
     else:
         return JSONResponse([], status_code=500)
 
 if __name__ == "__main__":
     import uvicorn
 
-    print("Backend running on http://localhost:3000")
-    uvicorn.run("server:app", host="0.0.0.0", port=3000, reload=True)
+    print("Backend running ")
+    uvicorn.run("server:app", host="0.0.0.0", port=5000, reload=True)
