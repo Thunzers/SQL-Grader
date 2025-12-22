@@ -73,7 +73,7 @@ async def google_auth(request: Request):
             if conn:
                 cur = conn.cursor()
 
-                # 1. Insert หรือ Ignore ถ้ามีอยู่แล้ว
+               
                 sql = """
                     INSERT INTO users (email, role) 
                     VALUES (%s, 'student') 
@@ -82,7 +82,7 @@ async def google_auth(request: Request):
                 cur.execute(sql, (email,))
                 conn.commit()
 
-                # 2. SELECT เพื่อเอา Role ที่แท้จริงออกมา
+                
                 cur.execute("SELECT role FROM users WHERE email = %s", (email,))
                 user_data = cur.fetchone()
                 role = user_data[0] if user_data else "student"
@@ -123,6 +123,45 @@ def get_users():
     cur.close()
     conn.close()
     return JSONResponse(users, status_code=200)
+
+# Update User Role
+@app.put("/api/users/{id}/role")
+async def update_user_role(id: int, request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    new_role = (data or {}).get("role")
+
+    if not new_role:
+        return JSONResponse({"error": "Role is required"}, status_code=400)
+
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database connection failed"}, status_code=500)
+
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET role = %s WHERE id = %s", (new_role, id))
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return JSONResponse({"message": "Role updated successfully", "success": True}, status_code=200)
+    except Exception as e:
+        print(f"Error updating role: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 
 @app.get("/api/classes")
 def get_classes():

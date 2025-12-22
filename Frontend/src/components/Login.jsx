@@ -4,11 +4,11 @@ import { Eye, EyeOff } from "lucide-react";
 export default function Login({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   
-  // 1. State สำหรับเก็บค่าที่พิมพ์
+  // State สำหรับเก็บค่าที่พิมพ์
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   
-  // 2. State สำหรับจัดการสถานะการโหลดและ Error
+  // State สำหรับจัดการสถานะการโหลดและ Error
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(""); 
 
@@ -38,7 +38,7 @@ export default function Login({ onLoginSuccess }) {
     setErrorMsg("");
 
     try {
-      const res = await fetch("http://localhost:3000/auth/google", {
+      const res = await fetch("http://localhost:5000/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: token }),
@@ -48,20 +48,19 @@ export default function Login({ onLoginSuccess }) {
 
       if (data.success) {
         console.log("Google Login สำเร็จ:", data.email, "| Role:", data.role);
-        // ⭐️ แก้ไข: ส่งทั้ง email และ role ไปให้ App ตัวแม่จัดการต่อ
         onLoginSuccess(data.email, data.role); 
       } else {
         setErrorMsg(data.error || "Login failed (Unknown Error from Server)"); 
       }
     } catch (err) {
       console.error("Error logging in:", err);
-      setErrorMsg("ไม่สามารถเชื่อมต่อ Server ได้ (โปรดตรวจสอบว่ารัน Server Python ที่ http://localhost:3000 อยู่)");
+      setErrorMsg("ไม่สามารถเชื่อมต่อ Server ได้ (โปรดตรวจสอบว่ารัน Server Python ที่ http://localhost:5000 อยู่)");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ⭐️ Manual Login (Mock) - แก้ไขให้ส่ง Role ไปด้วย
+  // Manual Login (Mock)
   const handleManualLogin = async (e) => {
     e.preventDefault(); 
     setErrorMsg("");
@@ -75,16 +74,13 @@ export default function Login({ onLoginSuccess }) {
 
     await new Promise(resolve => setTimeout(resolve, 1000)); 
       
-    // Mock Logic สำหรับเช็ค Role เพื่อการทดสอบ
     if (email.endsWith("@silpakorn.edu") || email === "admin" || email === "teacher") {
         console.log("Manual Login (Mock) สำเร็จ:", email);
-        
         
         let role = "student";
         if (email === "admin") role = "admin";
         if (email === "teacher") role = "teacher";
 
-        // ⭐️ ส่ง role ไปด้วย
         onLoginSuccess(email, role);
     } else {
         setErrorMsg("อนุญาตเฉพาะอีเมล @silpakorn.edu");
@@ -95,7 +91,6 @@ export default function Login({ onLoginSuccess }) {
 
   return (
     <div className="flex h-screen font-sans">
-    
       {/* Left Section */}
       <div className="w-1/2 flex flex-col justify-center items-center bg-white">
         <h1 className="text-9xl font-semibold text-teal-700">Grader</h1>

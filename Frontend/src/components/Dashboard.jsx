@@ -45,7 +45,7 @@ export default function Dashboard({ setIsLoggedIn, userEmail }) {
                 </button>
                 <button
                   className="w-full px-4 py-3 text-left hover:bg-gray-100 flex items-center gap-2 text-red-600"
-                  onClick={() => setIsLoggedIn(false)} // ⭐ LOGOUT
+                  onClick={() => setIsLoggedIn(false)} //LOGOUT
                 >
                   <LogOut size={18} /> Logout
                 </button>
