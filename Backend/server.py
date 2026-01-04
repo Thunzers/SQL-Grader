@@ -55,8 +55,6 @@ async def google_auth(request: Request):
 
     token = (data or {}).get('token')
 
-    # ดู Token ที่ได้รับใน Terminal
-    print(f"Token ที่ได้รับ: {token}")
 
     if not token:
         return JSONResponse({"success": False, "error": "No token provided"}, status_code=400)
@@ -648,6 +646,88 @@ async def create_dataset(request: Request):
         return JSONResponse({"success": True, "dataset": serialize_row(new_dataset)}, status_code=201)
     except Exception as e:
         print(f"Error creating dataset: {e}")
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# Update dataset
+@app.put("/api/datasets/{dataset_id}")
+async def update_dataset(dataset_id: int, request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    name = data.get("name")
+    description = data.get("description", "")
+    schema_sql = data.get("schema_sql")
+    seed_data_sql = data.get("seed_data_sql")
+
+    if not all([name, schema_sql, seed_data_sql]):
+        return JSONResponse({"error": "Required fields: name, schema_sql, seed_data_sql"}, status_code=400)
+
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database connection failed"}, status_code=500)
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            UPDATE datasets
+            SET name = %s, description = %s, schema_sql = %s, seed_data_sql = %s
+            WHERE dataset_id = %s
+            RETURNING *
+        """, (name, description, schema_sql, seed_data_sql, dataset_id))
+
+        updated_dataset = cur.fetchone()
+        if not updated_dataset:
+            conn.close()
+            return JSONResponse({"error": "Dataset not found"}, status_code=404)
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return JSONResponse({"success": True, "dataset": serialize_row(updated_dataset)}, status_code=200)
+    except Exception as e:
+        print(f"Error updating dataset: {e}")
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# Delete dataset
+@app.delete("/api/datasets/{dataset_id}")
+def delete_dataset(dataset_id: int):
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database connection failed"}, status_code=500)
+
+    try:
+        cur = conn.cursor()
+        # Check if dataset exists
+        cur.execute("SELECT dataset_id FROM datasets WHERE dataset_id = %s", (dataset_id,))
+        if not cur.fetchone():
+            cur.close()
+            conn.close()
+            return JSONResponse({"error": "Dataset not found"}, status_code=404)
+
+        # Delete the dataset
+        cur.execute("DELETE FROM datasets WHERE dataset_id = %s", (dataset_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return JSONResponse({"success": True, "message": "Dataset deleted successfully"}, status_code=200)
+    except Exception as e:
+        print(f"Error deleting dataset: {e}")
         try:
             conn.rollback()
             conn.close()
@@ -1442,6 +1522,181 @@ async def run_sql(request: Request):
     }, status_code=200)
 
 
+# Helper: Evaluate test cases
+def evaluate_test_cases(student_result, test_cases):
+    import json
+    results = []
+    total_score = 0
+    max_score = 0
+    all_passed = True
+
+    for tc in test_cases:
+        max_points = tc.get("points", 0)
+        max_score += max_points
+
+        try:
+            expected_output = tc.get("expected_output")
+            if isinstance(expected_output, str):
+                expected_output = json.loads(expected_output)
+
+            # Compare results
+            is_passed = True
+            error_msg = None
+
+            # Check columns match
+            if set(student_result.get("columns", [])) != set(expected_output.get("columns", [])):
+                is_passed = False
+                error_msg = f"Column mismatch. Expected: {expected_output.get('columns')}, Got: {student_result.get('columns')}"
+
+            # Check row count
+            elif student_result.get("row_count") != expected_output.get("row_count"):
+                is_passed = False
+                error_msg = f"Row count mismatch. Expected: {expected_output.get('row_count')}, Got: {student_result.get('row_count')}"
+
+                # Check row data (convert to set of tuples for comparison)
+            elif is_passed:
+                try:
+                    # Normalize rows to tuples (handle both dict and list formats)
+                    def normalize_row(row, columns):
+                        if isinstance(row, dict):
+                            # If row is dict, extract values in column order
+                            return tuple(row.get(col) for col in columns)
+                        elif isinstance(row, (list, tuple)):
+                            # If row is already list/tuple, convert to tuple
+                            return tuple(row)
+                        else:
+                            # Fallback: wrap in tuple
+                            return (row,)
+
+                    columns = student_result.get("columns", [])
+                    student_rows = [normalize_row(row, columns) for row in student_result.get("rows", [])]
+                    expected_rows = [normalize_row(row, columns) for row in expected_output.get("rows", [])]
+
+                    student_set = set(student_rows)
+                    expected_set = set(expected_rows)
+
+                    if student_set != expected_set:
+                        is_passed = False
+                        missing = list(expected_set - student_set)
+                        extra = list(student_set - expected_set)
+
+                        msg_parts = []
+                        if missing:
+                            msg_parts.append(f"Missing (first 3): {missing[:3]}")
+                        if extra:
+                            msg_parts.append(f"Extra (first 3): {extra[:3]}")
+
+                        error_msg = "Row data mismatch. " + "; ".join(msg_parts)
+                except Exception as e:
+                    is_passed = False
+                    error_msg = f"Error comparing rows: {str(e)}"
+
+            points_earned = max_points if is_passed else 0
+            total_score += points_earned
+
+            if not is_passed:
+                all_passed = False
+
+            results.append({
+                "case_id": tc.get("case_id"),
+                "case_name": tc.get("case_name", "Test Case"),
+                "is_passed": is_passed,
+                "points_earned": points_earned,
+                "max_points": max_points,
+                "error": error_msg
+            })
+
+        except Exception as e:
+            all_passed = False
+            results.append({
+                "case_id": tc.get("case_id"),
+                "case_name": tc.get("case_name", "Test Case"),
+                "is_passed": False,
+                "points_earned": 0,
+                "max_points": max_points,
+                "error": f"Error evaluating test case: {str(e)}"
+            })
+            
+    return {
+        "is_correct": all_passed,
+        "total_score": total_score,
+        "max_score": max_score,
+        "results": results
+    }
+
+
+# Run SQL and Test (Dry Run - No Submit)
+@app.post("/api/exercises/{exercise_id}/run")
+async def run_exercise_test(exercise_id: int, request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    query = data.get("query")
+    if not query:
+        return JSONResponse({"error": "query is required"}, status_code=400)
+
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database connection failed"}, status_code=500)
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get exercise with dataset
+        cur.execute("""
+            SELECT e.*, d.schema_sql, d.seed_data_sql
+            FROM exercises e
+            LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+            WHERE e.exercise_id = %s
+        """, (exercise_id,))
+        exercise = cur.fetchone()
+
+        if not exercise:
+            cur.close()
+            conn.close()
+            return JSONResponse({"error": "Exercise not found"}, status_code=404)
+
+        # Get test cases
+        cur.execute("""
+            SELECT * FROM test_cases
+            WHERE exercise_id = %s
+            ORDER BY case_id
+        """, (exercise_id,))
+        test_cases = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        schema_sql = exercise.get("schema_sql") or ""
+        seed_sql = exercise.get("seed_data_sql") or ""
+
+        # Run student's query
+        student_result = run_sql_on_sandbox(schema_sql, seed_sql, query)
+
+        if "error" in student_result:
+            return JSONResponse({"success": False, "error": student_result["error"]}, status_code=400)
+
+        # Evaluate test cases
+        test_results = evaluate_test_cases(student_result, test_cases)
+
+        # Return combined result
+        return JSONResponse({
+            "success": True,
+            "query_result": {
+                "columns": student_result.get("columns", []),
+                "rows": [dict(zip(student_result["columns"], row)) for row in student_result.get("rows", [])],
+                "row_count": student_result.get("row_count", 0)
+            },
+            "test_results": test_results
+        }, status_code=200)
+
+    except Exception as e:
+        print(f"Error running exercise test: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 # Generate test case from expected_query
 @app.post("/api/exercises/{exercise_id}/generate-test-case")
 async def generate_test_case(exercise_id: int, request: Request):
@@ -1515,6 +1770,138 @@ async def generate_test_case(exercise_id: int, request: Request):
 
     except Exception as e:
         print(f"Error generating test case: {e}")
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# Submit Exercise Solution
+@app.post("/api/exercises/{exercise_id}/submit")
+async def submit_exercise(exercise_id: int, request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    query = data.get("query")
+    student_id = data.get("student_id")
+
+    if not query:
+        return JSONResponse({"error": "query is required"}, status_code=400)
+    if not student_id:
+        return JSONResponse({"error": "student_id is required"}, status_code=400)
+
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database connection failed"}, status_code=500)
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get exercise with dataset and test cases
+        cur.execute("""
+            SELECT e.*, d.schema_sql, d.seed_data_sql
+            FROM exercises e
+            LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+            WHERE e.exercise_id = %s
+        """, (exercise_id,))
+        exercise = cur.fetchone()
+
+        if not exercise:
+            cur.close()
+            conn.close()
+            return JSONResponse({"error": "Exercise not found"}, status_code=404)
+
+        # Get test cases
+        cur.execute("""
+            SELECT * FROM test_cases
+            WHERE exercise_id = %s
+            ORDER BY case_id
+        """, (exercise_id,))
+        test_cases = cur.fetchall()
+
+        if not test_cases:
+            cur.close()
+            conn.close()
+            return JSONResponse({"error": "No test cases found for this exercise"}, status_code=400)
+
+        schema_sql = exercise.get("schema_sql") or ""
+        seed_sql = exercise.get("seed_data_sql") or ""
+
+        # Run student's query
+        student_result = run_sql_on_sandbox(schema_sql, seed_sql, query)
+
+        if "error" in student_result:
+            # Save failed submission
+            import json
+            submission_result = {
+                "is_correct": False,
+                "total_score": 0,
+                "max_score": sum(tc.get("points", 0) for tc in test_cases),
+                "error_message": student_result["error"],
+                "results": []
+            }
+
+            cur.execute("""
+                INSERT INTO submissions (exercise_id, student_id, submitted_query, is_correct, total_score, max_score, error_message, results)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING submit_id, submitted_at
+            """, (exercise_id, student_id, query, False, 0, submission_result["max_score"], student_result["error"], json.dumps(submission_result)))
+
+            submission = cur.fetchone()
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            return JSONResponse({
+                "success": False,
+                "submit_id": submission["submit_id"],
+                "submitted_at": submission["submitted_at"].isoformat() if submission["submitted_at"] else None,
+                **submission_result
+            }, status_code=200)
+
+        # Compare with test cases
+        import json
+        
+        # Use existing helper
+        test_evaluation = evaluate_test_cases(student_result, test_cases)
+        
+        all_passed = test_evaluation["is_correct"]
+        total_score = test_evaluation["total_score"]
+        max_score = test_evaluation["max_score"]
+        results = test_evaluation["results"]
+
+        # Save submission
+        submission_result = {
+            "is_correct": all_passed,
+            "total_score": total_score,
+            "max_score": max_score,
+            "results": results
+        }
+
+        cur.execute("""
+            INSERT INTO submissions (exercise_id, student_id, submitted_query, is_correct, total_score, max_score, results)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING submit_id, submitted_at
+        """, (exercise_id, student_id, query, all_passed, total_score, max_score, json.dumps(submission_result)))
+
+        submission = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return JSONResponse({
+            "success": True,
+            "submit_id": submission["submit_id"],
+            "submitted_at": submission["submitted_at"].isoformat() if submission["submitted_at"] else None,
+            **submission_result
+        }, status_code=200)
+
+    except Exception as e:
+        print(f"Error submitting exercise: {e}")
         try:
             conn.rollback()
             conn.close()

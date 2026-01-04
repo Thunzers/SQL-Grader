@@ -35,6 +35,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [editingExercise, setEditingExercise] = useState(null);
+  const [editingDataset, setEditingDataset] = useState(null);
 
   // Assignment Form State
   const [assignmentForm, setAssignmentForm] = useState({
@@ -365,6 +366,23 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
     });
   };
 
+  // Open Dataset Modal (Create/Edit)
+  const openDatasetForm = (dataset = null) => {
+    if (dataset) {
+      setEditingDataset(dataset);
+      setDatasetForm({
+        name: dataset.name || "",
+        description: dataset.description || "",
+        schema_sql: dataset.schema_sql || "",
+        seed_data_sql: dataset.seed_data_sql || ""
+      });
+    } else {
+      setEditingDataset(null);
+      setDatasetForm({ name: "", description: "", schema_sql: "", seed_data_sql: "" });
+    }
+    setShowDatasetModal(true);
+  };
+
   // Save Dataset
   const handleSaveDataset = async (e) => {
     e.preventDefault();
@@ -375,15 +393,21 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/datasets`, {
-        method: "POST",
+      const url = editingDataset
+        ? `${API_BASE}/api/datasets/${editingDataset.dataset_id}`
+        : `${API_BASE}/api/datasets`;
+
+      const method = editingDataset ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...datasetForm, created_by: userEmail })
       });
 
       const data = await res.json();
       if (res.ok) {
-        notify("success", "สร้าง Dataset สำเร็จ!");
+        notify("success", editingDataset ? "แก้ไข Dataset สำเร็จ!" : "สร้าง Dataset สำเร็จ!");
         setShowDatasetModal(false);
         setDatasetForm({ name: "", description: "", schema_sql: "", seed_data_sql: "" });
         fetchDatasets();
@@ -396,6 +420,29 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Delete Dataset
+  const handleDeleteDataset = (datasetId) => {
+    setConfirmModal({
+      title: "ยืนยันการลบ Dataset",
+      message: "ต้องการลบ Dataset นี้หรือไม่? (Exercise ที่ใช้ Dataset นี้จะไม่สามารถใช้งานได้)",
+      type: "danger",
+      confirmText: "ลบ",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/datasets/${datasetId}`, { method: "DELETE" });
+          if (res.ok) {
+            notify("success", "ลบ Dataset สำเร็จ!");
+            fetchDatasets();
+          } else {
+            notify("error", "เกิดข้อผิดพลาดในการลบ");
+          }
+        } catch (error) {
+          console.error("Error deleting dataset:", error);
+        }
+      }
+    });
   };
 
   // Fetch Test Cases for an exercise
@@ -665,11 +712,10 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                     <div
                       key={a.assign_id}
                       onClick={() => handleSelectAssignment(a)}
-                      className={`p-3 rounded-lg cursor-pointer border transition ${
-                        selectedAssignment?.assign_id === a.assign_id
-                          ? "border-teal-500 bg-teal-50"
-                          : "border-gray-200 hover:border-teal-300 hover:bg-gray-50"
-                      }`}
+                      className={`p-3 rounded-lg cursor-pointer border transition ${selectedAssignment?.assign_id === a.assign_id
+                        ? "border-teal-500 bg-teal-50"
+                        : "border-gray-200 hover:border-teal-300 hover:bg-gray-50"
+                        }`}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -800,7 +846,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800">Datasets (ฐานข้อมูลจำลอง)</h2>
               <button
-                onClick={() => setShowDatasetModal(true)}
+                onClick={() => openDatasetForm()}
                 className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
               >
                 <Plus size={18} /> สร้าง Dataset
@@ -815,9 +861,27 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {datasets.map((ds) => (
                   <div key={ds.dataset_id} className="p-4 border border-gray-200 rounded-lg hover:border-teal-300 transition">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Database size={20} className="text-teal-600" />
-                      <h3 className="font-semibold text-gray-800">{ds.name}</h3>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Database size={20} className="text-teal-600" />
+                        <h3 className="font-semibold text-gray-800">{ds.name}</h3>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openDatasetForm(ds)}
+                          className="text-blue-600 hover:bg-blue-50 p-1.5 rounded transition"
+                          title="แก้ไข"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDataset(ds.dataset_id)}
+                          className="text-red-600 hover:bg-red-50 p-1.5 rounded transition"
+                          title="ลบ"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-sm text-gray-500">{ds.description || "ไม่มีคำอธิบาย"}</p>
                   </div>
@@ -986,7 +1050,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   type="text"
                   value={exerciseForm.title}
                   onChange={(e) => setExerciseForm({ ...exerciseForm, title: e.target.value })}
-                  placeholder="เช่น เชื่อม 2 ตาราง"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                   required
                 />
@@ -999,7 +1062,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                 <textarea
                   value={exerciseForm.description}
                   onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })}
-                  placeholder="จงเขียน SQL เพื่อ..."
                   rows={3}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                   required
@@ -1015,7 +1077,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   onChange={(e) => setExerciseForm({ ...exerciseForm, dataset_id: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                 >
-                  <option value="">-- ไม่ใช้ Dataset (โจทย์ให้สร้างตารางเอง) --</option>
+                  <option value="">-- ไม่ใช้ Dataset --</option>
                   {datasets.map((ds) => (
                     <option key={ds.dataset_id} value={ds.dataset_id}>{ds.name}</option>
                   ))}
@@ -1235,7 +1297,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="bg-purple-700 text-white p-4 flex justify-between items-center">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <Database size={22} /> สร้าง Dataset ใหม่
+                <Database size={22} /> {editingDataset ? "แก้ไข Dataset" : "สร้าง Dataset ใหม่"}
               </h2>
               <button onClick={() => setShowDatasetModal(false)} className="hover:bg-white/20 p-1 rounded-full">
                 <X size={22} />
@@ -1251,7 +1313,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   type="text"
                   value={datasetForm.name}
                   onChange={(e) => setDatasetForm({ ...datasetForm, name: e.target.value })}
-                  placeholder="เช่น employees_db"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
                   required
                 />
@@ -1263,7 +1324,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   type="text"
                   value={datasetForm.description}
                   onChange={(e) => setDatasetForm({ ...datasetForm, description: e.target.value })}
-                  placeholder="ฐานข้อมูลพนักงานสำหรับฝึก JOIN"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
                 />
               </div>
@@ -1275,7 +1335,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                 <textarea
                   value={datasetForm.schema_sql}
                   onChange={(e) => setDatasetForm({ ...datasetForm, schema_sql: e.target.value })}
-                  placeholder={`CREATE TABLE employees (\n  id INT PRIMARY KEY,\n  name VARCHAR(100),\n  salary INT\n);`}
+
                   rows={6}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
                   required
@@ -1289,7 +1349,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                 <textarea
                   value={datasetForm.seed_data_sql}
                   onChange={(e) => setDatasetForm({ ...datasetForm, seed_data_sql: e.target.value })}
-                  placeholder={`INSERT INTO employees VALUES\n  (1, 'สมชาย', 35000),\n  (2, 'สมหญิง', 42000);`}
+
                   rows={6}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
                   required

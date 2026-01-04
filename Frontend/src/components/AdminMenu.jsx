@@ -33,7 +33,7 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      
+
       const response = await fetch('http://localhost:5000/api/users');
       const data = await response.json();
       const usersData = Array.isArray(data)
@@ -255,7 +255,7 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
       <div className="px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
 
         {/* Manage Users Card (Clickable) */}
-        <div 
+        <div
           onClick={openUserManagement}
           className="bg-white rounded-xl shadow-md border p-5 hover:shadow-xl hover:-translate-y-1 transition cursor-pointer"
         >
@@ -264,26 +264,26 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
           <p className="text-gray-600 text-sm mt-1">Students, Teachers, Admins</p>
         </div>
 
-        {/* Manage Classes */}
+        {/* Manage Classes 
         <div className="bg-white rounded-xl shadow-md border p-5 hover:shadow-xl hover:-translate-y-1 transition cursor-pointer">
           <BookOpen size={40} className="text-indigo-700" />
           <h3 className="text-xl font-semibold mt-3">Manage Courses</h3>
           <p className="text-gray-600 text-sm mt-1">Create, Edit, Delete Classes</p>
         </div>
 
-        {/* System Settings */}
+        System Settings 
         <div className="bg-white rounded-xl shadow-md border p-5 hover:shadow-xl hover:-translate-y-1 transition cursor-pointer">
           <Settings size={40} className="text-amber-700" />
           <h3 className="text-xl font-semibold mt-3">System Settings</h3>
           <p className="text-gray-600 text-sm mt-1">Configuration & Permissions</p>
-        </div>
+        </div> */}
       </div>
 
       {/* --- USER MANAGEMENT MODAL --- */}
       {showUserModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
-            
+
             {/* Modal Header */}
             <div className="bg-teal-700 text-white p-4 flex justify-between items-center">
               <h2 className="text-xl font-bold flex items-center gap-2">
@@ -338,7 +338,7 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold
                             ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
                               user.role === 'teacher' ? 'bg-blue-100 text-blue-700' :
-                              'bg-green-100 text-green-700'}`}>
+                                'bg-green-100 text-green-700'}`}>
                             {user.role}
                           </span>
                         </td>
@@ -615,12 +615,12 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
                 </p>
               </div>
 
-                <div className="bg-gray-100 p-3 rounded-lg mb-4">
-                  <p className="text-sm text-gray-600">รหัสนักศึกษา: <strong>{userToDelete.student_id}</strong></p>
-                  <p className="text-sm text-gray-600">ชื่อ-นามสกุล: <strong>{userToDelete.name} {userToDelete.surname}</strong></p>
-                  <p className="text-sm text-gray-600">อีเมล: <strong>{userToDelete.email}</strong></p>
-                  <p className="text-sm text-gray-600">Role: <strong>{userToDelete.role}</strong></p>
-                </div>
+              <div className="bg-gray-100 p-3 rounded-lg mb-4">
+                <p className="text-sm text-gray-600">รหัสนักศึกษา: <strong>{userToDelete.student_id}</strong></p>
+                <p className="text-sm text-gray-600">ชื่อ-นามสกุล: <strong>{userToDelete.name} {userToDelete.surname}</strong></p>
+                <p className="text-sm text-gray-600">อีเมล: <strong>{userToDelete.email}</strong></p>
+                <p className="text-sm text-gray-600">Role: <strong>{userToDelete.role}</strong></p>
+              </div>
 
               <div className="flex gap-3">
                 <button
