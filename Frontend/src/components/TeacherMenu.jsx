@@ -4,6 +4,8 @@ import {
   X, Save, Plus, Trash2, Edit3, BookOpen, Database, ChevronRight,
   Calendar, Target, FileText, Play, CheckCircle, XCircle, Loader2
 } from "lucide-react";
+import Notification from "./Notification";
+import ConfirmModal from "./ConfirmModal";
 
 const API_BASE = "http://localhost:5000";
 
@@ -67,6 +69,13 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
   });
 
   const [saving, setSaving] = useState(false);
+
+  // Notification State
+  const [notification, setNotification] = useState(null);
+  const notify = (type, message) => setNotification({ type, message });
+
+  // Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState(null);
 
   // Test Cases State
   const [testCases, setTestCases] = useState([]);
@@ -213,40 +222,46 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
 
       const data = await res.json();
       if (res.ok) {
-        alert(editingAssignment ? "แก้ไข Assignment สำเร็จ!" : "สร้าง Assignment สำเร็จ!");
+        notify("success", editingAssignment ? "แก้ไข Assignment สำเร็จ!" : "สร้าง Assignment สำเร็จ!");
         setShowAssignmentModal(false);
         fetchAssignments();
         fetchCategories();
       } else {
-        alert(data.error || "เกิดข้อผิดพลาด");
+        notify("error", data.error || "เกิดข้อผิดพลาด");
       }
     } catch (error) {
       console.error("Error saving assignment:", error);
-      alert("ไม่สามารถบันทึกได้");
+      notify("error", "ไม่สามารถบันทึกได้");
     } finally {
       setSaving(false);
     }
   };
 
   // Delete Assignment
-  const handleDeleteAssignment = async (assignId) => {
-    if (!confirm("ต้องการลบ Assignment นี้หรือไม่? (Exercise ทั้งหมดจะถูกลบด้วย)")) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/api/assignments/${assignId}`, { method: "DELETE" });
-      if (res.ok) {
-        alert("ลบ Assignment สำเร็จ!");
-        fetchAssignments();
-        if (selectedAssignment?.assign_id === assignId) {
-          setSelectedAssignment(null);
-          setExercises([]);
+  const handleDeleteAssignment = (assignId) => {
+    setConfirmModal({
+      title: "ยืนยันการลบ Assignment",
+      message: "ต้องการลบ Assignment นี้หรือไม่? (Exercise ทั้งหมดจะถูกลบด้วย)",
+      type: "danger",
+      confirmText: "ลบ",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/assignments/${assignId}`, { method: "DELETE" });
+          if (res.ok) {
+            notify("success", "ลบ Assignment สำเร็จ!");
+            fetchAssignments();
+            if (selectedAssignment?.assign_id === assignId) {
+              setSelectedAssignment(null);
+              setExercises([]);
+            }
+          } else {
+            notify("error", "เกิดข้อผิดพลาดในการลบ");
+          }
+        } catch (error) {
+          console.error("Error deleting assignment:", error);
         }
-      } else {
-        alert("เกิดข้อผิดพลาดในการลบ");
       }
-    } catch (error) {
-      console.error("Error deleting assignment:", error);
-    }
+    });
   };
 
   // Open Exercise Modal
@@ -311,37 +326,43 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
 
       const data = await res.json();
       if (res.ok) {
-        alert(editingExercise ? "แก้ไข Exercise สำเร็จ!" : "สร้าง Exercise สำเร็จ!");
+        notify("success", editingExercise ? "แก้ไข Exercise สำเร็จ!" : "สร้าง Exercise สำเร็จ!");
         setShowExerciseModal(false);
         fetchExercises(selectedAssignment.assign_id);
         fetchAssignments(); // Update exercise count
       } else {
-        alert(data.error || "เกิดข้อผิดพลาด");
+        notify("error", data.error || "เกิดข้อผิดพลาด");
       }
     } catch (error) {
       console.error("Error saving exercise:", error);
-      alert("ไม่สามารถบันทึกได้");
+      notify("error", "ไม่สามารถบันทึกได้");
     } finally {
       setSaving(false);
     }
   };
 
   // Delete Exercise
-  const handleDeleteExercise = async (exerciseId) => {
-    if (!confirm("ต้องการลบ Exercise นี้หรือไม่?")) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/api/exercises/${exerciseId}`, { method: "DELETE" });
-      if (res.ok) {
-        alert("ลบ Exercise สำเร็จ!");
-        fetchExercises(selectedAssignment.assign_id);
-        fetchAssignments();
-      } else {
-        alert("เกิดข้อผิดพลาดในการลบ");
+  const handleDeleteExercise = (exerciseId) => {
+    setConfirmModal({
+      title: "ยืนยันการลบ Exercise",
+      message: "ต้องการลบ Exercise นี้หรือไม่?",
+      type: "danger",
+      confirmText: "ลบ",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/exercises/${exerciseId}`, { method: "DELETE" });
+          if (res.ok) {
+            notify("success", "ลบ Exercise สำเร็จ!");
+            fetchExercises(selectedAssignment.assign_id);
+            fetchAssignments();
+          } else {
+            notify("error", "เกิดข้อผิดพลาดในการลบ");
+          }
+        } catch (error) {
+          console.error("Error deleting exercise:", error);
+        }
       }
-    } catch (error) {
-      console.error("Error deleting exercise:", error);
-    }
+    });
   };
 
   // Save Dataset
@@ -362,16 +383,16 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
 
       const data = await res.json();
       if (res.ok) {
-        alert("สร้าง Dataset สำเร็จ!");
+        notify("success", "สร้าง Dataset สำเร็จ!");
         setShowDatasetModal(false);
         setDatasetForm({ name: "", description: "", schema_sql: "", seed_data_sql: "" });
         fetchDatasets();
       } else {
-        alert(data.error || "เกิดข้อผิดพลาด");
+        notify("error", data.error || "เกิดข้อผิดพลาด");
       }
     } catch (error) {
       console.error("Error saving dataset:", error);
-      alert("ไม่สามารถบันทึกได้");
+      notify("error", "ไม่สามารถบันทึกได้");
     } finally {
       setSaving(false);
     }
@@ -490,12 +511,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
           })
         });
         if (res.ok) {
-          alert("แก้ไข Test Case สำเร็จ!");
+          notify("success", "แก้ไข Test Case สำเร็จ!");
           setShowTestCaseModal(false);
           fetchTestCases(exerciseId || editingTestCase.exercise_id);
         } else {
           const data = await res.json();
-          alert(data.error || "เกิดข้อผิดพลาด");
+          notify("error", data.error || "เกิดข้อผิดพลาด");
         }
       } else {
         // Create new test case
@@ -510,36 +531,43 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
           })
         });
         if (res.ok) {
-          alert("สร้าง Test Case สำเร็จ!");
+          notify("success", "สร้าง Test Case สำเร็จ!");
           setShowTestCaseModal(false);
           fetchTestCases(exerciseId);
         } else {
           const data = await res.json();
-          alert(data.error || "เกิดข้อผิดพลาด");
+          notify("error", data.error || "เกิดข้อผิดพลาด");
         }
       }
     } catch (error) {
       console.error("Error saving test case:", error);
-      alert("ไม่สามารถบันทึก Test Case ได้");
+      notify("error", "ไม่สามารถบันทึก Test Case ได้");
     } finally {
       setSaving(false);
     }
   };
 
   // Delete Test Case
-  const handleDeleteTestCase = async (caseId) => {
-    if (!confirm("ต้องการลบ Test Case นี้หรือไม่?")) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/api/test-cases/${caseId}`, { method: "DELETE" });
-      if (res.ok) {
-        setTestCases(testCases.filter(tc => tc.case_id !== caseId));
-      } else {
-        alert("เกิดข้อผิดพลาดในการลบ");
+  const handleDeleteTestCase = (caseId) => {
+    setConfirmModal({
+      title: "ยืนยันการลบ Test Case",
+      message: "ต้องการลบ Test Case นี้หรือไม่?",
+      type: "danger",
+      confirmText: "ลบ",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/test-cases/${caseId}`, { method: "DELETE" });
+          if (res.ok) {
+            notify("success", "ลบ Test Case สำเร็จ!");
+            setTestCases(testCases.filter(tc => tc.case_id !== caseId));
+          } else {
+            notify("error", "เกิดข้อผิดพลาดในการลบ");
+          }
+        } catch (error) {
+          console.error("Error deleting test case:", error);
+        }
       }
-    } catch (error) {
-      console.error("Error deleting test case:", error);
-    }
+    });
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -1381,6 +1409,18 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
           </div>
         </div>
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        config={confirmModal}
+        onClose={() => setConfirmModal(null)}
+      />
+
+      {/* Notification Toast */}
+      <Notification
+        notification={notification}
+        onClose={() => setNotification(null)}
+      />
 
     </div>
   );
