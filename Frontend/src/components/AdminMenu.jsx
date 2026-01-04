@@ -11,6 +11,9 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
 
   // States for Add Single User Modal
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newStudentId, setNewStudentId] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newSurname, setNewSurname] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("student");
   const [addingUser, setAddingUser] = useState(false);
@@ -46,9 +49,9 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
   };
 
   // เปลี่ยน Role
-  const handleRoleChange = async (userId, newRole) => {
+  const handleRoleChange = async (studentId, newRole) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
+      const response = await fetch(`http://localhost:5000/api/users/${studentId}/role`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -58,8 +61,8 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
 
       if (response.ok) {
         // อัปเดตข้อมูล
-        setUsers(users.map(user => 
-          user.id === userId ? { ...user, role: newRole } : user
+        setUsers(users.map(user =>
+          user.student_id === studentId ? { ...user, role: newRole } : user
         ));
         alert("เปลี่ยน Role สำเร็จ!");
       } else {
@@ -70,7 +73,7 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
     }
   };
 
-  // เปิด Modal และดึงข้อมูล
+  // ดึงข้อมูล
   const openUserManagement = () => {
     setShowUserModal(true);
     fetchUsers();
@@ -80,8 +83,8 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
   const handleAddSingleUser = async (e) => {
     e.preventDefault();
 
-    if (!newUserEmail.trim()) {
-      alert("กรุณากรอกอีเมล");
+    if (!newStudentId.trim() || !newName.trim() || !newSurname.trim() || !newUserEmail.trim()) {
+      alert("กรุณากรอกข้อมูลให้ครบทุกช่อง");
       return;
     }
 
@@ -94,6 +97,9 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          student_id: newStudentId.trim(),
+          name: newName.trim(),
+          surname: newSurname.trim(),
           email: newUserEmail.trim(),
           role: newUserRole
         }),
@@ -104,6 +110,9 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
       if (response.ok) {
         alert("เพิ่มผู้ใช้สำเร็จ!");
         setShowAddUserModal(false);
+        setNewStudentId("");
+        setNewName("");
+        setNewSurname("");
         setNewUserEmail("");
         setNewUserRole("student");
         fetchUsers(); // Refresh user list
@@ -176,7 +185,7 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
     setDeleting(true);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${userToDelete.id}`, {
+      const response = await fetch(`http://localhost:5000/api/users/${userToDelete.student_id}`, {
         method: 'DELETE',
       });
 
@@ -309,7 +318,9 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-100 border-b">
-                      <th className="p-3 font-semibold text-gray-700">ID</th>
+                      <th className="p-3 font-semibold text-gray-700">Student ID</th>
+                      <th className="p-3 font-semibold text-gray-700">Name</th>
+                      <th className="p-3 font-semibold text-gray-700">Surname</th>
                       <th className="p-3 font-semibold text-gray-700">Email</th>
                       <th className="p-3 font-semibold text-gray-700">Current Role</th>
                       <th className="p-3 font-semibold text-gray-700">Change Role</th>
@@ -318,9 +329,11 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
                   </thead>
                   <tbody>
                     {users.map((user) => (
-                      <tr key={user.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 text-gray-600">#{user.id}</td>
-                        <td className="p-3">{user.email}</td>
+                      <tr key={user.student_id} className="border-b hover:bg-gray-50">
+                        <td className="p-3 text-gray-600 font-mono">{user.student_id}</td>
+                        <td className="p-3">{user.name}</td>
+                        <td className="p-3">{user.surname}</td>
+                        <td className="p-3 text-sm">{user.email}</td>
                         <td className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold
                             ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
@@ -332,7 +345,7 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
                         <td className="p-3">
                           <select
                             value={user.role}
-                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                            onChange={(e) => handleRoleChange(user.student_id, e.target.value)}
                             className="border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                           >
                             <option value="student">Student</option>
@@ -376,6 +389,48 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
 
             {/* Modal Body (Form) */}
             <form onSubmit={handleAddSingleUser} className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  รหัสนักศึกษา <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newStudentId}
+                  onChange={(e) => setNewStudentId(e.target.value)}
+                  placeholder="6512345678"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
+                  required
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  ชื่อ <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="สมชาย"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
+                  required
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  นามสกุล <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newSurname}
+                  onChange={(e) => setNewSurname(e.target.value)}
+                  placeholder="ใจดี"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
+                  required
+                />
+              </div>
+
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   อีเมล <span className="text-red-500">*</span>
@@ -448,10 +503,10 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <h3 className="font-semibold text-blue-900 mb-2">คำแนะนำ:</h3>
                 <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
-                  <li>ไฟล์ Excel ต้องมีคอลัมน์ <strong>email</strong> (จำเป็น)</li>
+                  <li>ไฟล์ Excel/CSV ต้องมีคอลัมน์ <strong>student_id, name, surname, email</strong> (จำเป็น)</li>
                   <li>คอลัมน์ <strong>role</strong> (ไม่บังคับ) - ถ้าไม่ระบุจะเป็น student</li>
                   <li>Role ที่ใช้ได้: student, teacher, admin</li>
-                  <li>อีเมลที่มีอยู่แล้วในระบบจะถูกข้าม</li>
+                  <li>รหัสนักศึกษาหรืออีเมลที่มีอยู่แล้วในระบบจะถูกข้าม</li>
                 </ul>
               </div>
 
@@ -463,7 +518,7 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
                   </label>
                   <input
                     type="file"
-                    accept=".xlsx,.xls"
+                    accept=".xlsx,.xls,.csv"
                     onChange={(e) => setUploadFile(e.target.files[0])}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                     required
@@ -560,9 +615,10 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
                 </p>
               </div>
 
-                <div className="bg-gray-100 p-3 rounded-lg">
-                  <p className="text-sm text-gray-600">ID: <strong>#{userToDelete.id}</strong></p>
-                  <p className="text-sm text-gray-600">Email: <strong>{userToDelete.email}</strong></p>
+                <div className="bg-gray-100 p-3 rounded-lg mb-4">
+                  <p className="text-sm text-gray-600">รหัสนักศึกษา: <strong>{userToDelete.student_id}</strong></p>
+                  <p className="text-sm text-gray-600">ชื่อ-นามสกุล: <strong>{userToDelete.name} {userToDelete.surname}</strong></p>
+                  <p className="text-sm text-gray-600">อีเมล: <strong>{userToDelete.email}</strong></p>
                   <p className="text-sm text-gray-600">Role: <strong>{userToDelete.role}</strong></p>
                 </div>
 

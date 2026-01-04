@@ -10,7 +10,7 @@ export default function Dashboard({ setIsLoggedIn, userEmail }) {
 
   // 2. ใช้ useEffect ดึงข้อมูลจาก Python Backend เมื่อหน้าเว็บโหลด
   useEffect(() => {
-    fetch("http://localhost:3000/api/classes")
+    fetch("http://localhost:5000/api/classes")
       .then((res) => {
         if (!res.ok) {
           throw new Error("Network response was not ok");

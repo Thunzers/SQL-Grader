@@ -1,14 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import Login from "./components/Login";
-import StudentDashboard from "./components/StudentDashboard";
-import TeacherDashboard from "./components/TeacherDashboard";
-import AdminDashboard from "./components/AdminDashboard";
+import StudentDashboard from "./components/StudentMenu";
+import TeacherDashboard from "./components/TeacherMenu";
+import AdminDashboard from "./components/AdminMenu";
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
-  const [role, setRole] = useState("");
+  // Load session from localStorage on initial render
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    const saved = localStorage.getItem("session");
+    return saved ? JSON.parse(saved).isLoggedIn : false;
+  });
+  const [userEmail, setUserEmail] = useState(() => {
+    const saved = localStorage.getItem("session");
+    return saved ? JSON.parse(saved).userEmail : "";
+  });
+  const [role, setRole] = useState(() => {
+    const saved = localStorage.getItem("session");
+    return saved ? JSON.parse(saved).role : "";
+  });
+
+  // Save session to localStorage whenever it changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      localStorage.setItem("session", JSON.stringify({ isLoggedIn, userEmail, role }));
+    } else {
+      localStorage.removeItem("session");
+    }
+  }, [isLoggedIn, userEmail, role]);
 
   
 
