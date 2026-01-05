@@ -1,17 +1,12 @@
 import { useState, useEffect } from "react";
 import { ChevronDown, LogOut, User, BookOpen, Calendar } from "lucide-react";
-import AssignmentDetail from "./AssignmentDetail";
-import ExerciseSolve from "./ExerciseSolve";
+import { useNavigate } from "react-router-dom";
 
 export default function StudentMenu({ setIsLoggedIn, userEmail }) {
+  const navigate = useNavigate();
   const [openProfile, setOpenProfile] = useState(false);
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Navigation State
-  const [currentView, setCurrentView] = useState("assignments"); // 'assignments' | 'assignment-detail' | 'exercise-solve'
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
-  const [selectedExerciseId, setSelectedExerciseId] = useState(null);
 
   // Fetch Assignments
   useEffect(() => {
@@ -34,45 +29,8 @@ export default function StudentMenu({ setIsLoggedIn, userEmail }) {
   }, []);
 
   const handleAssignmentClick = (assignmentId) => {
-    setSelectedAssignmentId(assignmentId);
-    setCurrentView("assignment-detail");
+    navigate(`/assignment/${assignmentId}`);
   };
-
-  const handleExerciseClick = (exerciseId) => {
-    setSelectedExerciseId(exerciseId);
-    setCurrentView("exercise-solve");
-  };
-
-  const handleBackToAssignments = () => {
-    setCurrentView("assignments");
-    setSelectedAssignmentId(null);
-    setSelectedExerciseId(null);
-  };
-
-  const handleBackToExercises = () => {
-    setCurrentView("assignment-detail");
-    setSelectedExerciseId(null);
-  };
-
-  // Render based on current view
-  if (currentView === "exercise-solve") {
-    return (
-      <ExerciseSolve
-        exerciseId={selectedExerciseId}
-        onBack={handleBackToExercises}
-      />
-    );
-  }
-
-  if (currentView === "assignment-detail") {
-    return (
-      <AssignmentDetail
-        assignmentId={selectedAssignmentId}
-        onBack={handleBackToAssignments}
-        onSelectExercise={handleExerciseClick}
-      />
-    );
-  }
 
   // Default: Assignments List View
   return (

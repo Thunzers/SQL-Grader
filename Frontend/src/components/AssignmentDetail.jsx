@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Clock, BookOpen, Target } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
 
-export default function AssignmentDetail({ assignmentId, onBack, onSelectExercise }) {
+export default function AssignmentDetail() {
+  const { assignmentId } = useParams();
+  const navigate = useNavigate();
   const [assignment, setAssignment] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!assignmentId) return;
+
     // Fetch Assignment Info
     Promise.all([
       fetch(`http://localhost:5000/api/assignments/${assignmentId}`).then((res) =>
@@ -26,6 +31,10 @@ export default function AssignmentDetail({ assignmentId, onBack, onSelectExercis
         setIsLoading(false);
       });
   }, [assignmentId]);
+
+  const handleSelectExercise = (exerciseId) => {
+    navigate(`/exercise/${exerciseId}`);
+  };
 
   const getDifficultyColor = (difficulty) => {
     switch (difficulty?.toLowerCase()) {
@@ -65,7 +74,7 @@ export default function AssignmentDetail({ assignmentId, onBack, onSelectExercis
       <nav className="w-full bg-[#00796b] text-white px-6 py-4 shadow-md">
         <div className="flex items-center gap-4">
           <button
-            onClick={onBack}
+            onClick={() => navigate('/student')}
             className="flex items-center gap-2 hover:bg-white/10 px-3 py-2 rounded transition"
           >
             <ArrowLeft size={20} />
@@ -180,15 +189,14 @@ export default function AssignmentDetail({ assignmentId, onBack, onSelectExercis
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {exercise.user_score !== undefined &&
-                      exercise.user_score !== null ? (
+                        exercise.user_score !== null ? (
                         <span
-                          className={`font-medium ${
-                            exercise.user_score === exercise.points
-                              ? "text-green-600"
-                              : exercise.user_score > 0
+                          className={`font-medium ${exercise.user_score === exercise.points
+                            ? "text-green-600"
+                            : exercise.user_score > 0
                               ? "text-yellow-600"
                               : "text-gray-500"
-                          }`}
+                            }`}
                         >
                           {exercise.user_score} / {exercise.points}
                         </span>
@@ -198,7 +206,7 @@ export default function AssignmentDetail({ assignmentId, onBack, onSelectExercis
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => onSelectExercise(exercise.exercise_id)}
+                        onClick={() => handleSelectExercise(exercise.exercise_id)}
                         className="px-4 py-2 bg-[#00796b] text-white text-sm rounded-lg hover:bg-[#00695c] transition"
                       >
                         {exercise.status === "completed" ? "Review" : "Solve"}

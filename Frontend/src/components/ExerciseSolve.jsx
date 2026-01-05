@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Play, Check, AlertCircle } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
 import MonacoSQLEditor from "./MonacoSQLEditor";
 import SubmitResultModal from "./SubmitResultModal";
 import ConfirmModal from "./ConfirmModal";
 
-export default function ExerciseSolve({ exerciseId, onBack }) {
+export default function ExerciseSolve() {
+  const { exerciseId } = useParams();
+  const navigate = useNavigate();
   const [exercise, setExercise] = useState(null);
   const [dataset, setDataset] = useState(null);
   const [query, setQuery] = useState("-- Write your SQL query here\n");
@@ -166,7 +169,7 @@ export default function ExerciseSolve({ exerciseId, onBack }) {
       <nav className="w-full bg-[#00796b] text-white px-4 py-3 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-4">
           <button
-            onClick={onBack}
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 hover:bg-white/10 px-3 py-2 rounded transition"
           >
             <ArrowLeft size={20} />
@@ -546,7 +549,6 @@ export default function ExerciseSolve({ exerciseId, onBack }) {
           )}
         </div>
       </div>
-
       {/* Submit Result Modal */}
       <SubmitResultModal
         isOpen={showResultModal}
