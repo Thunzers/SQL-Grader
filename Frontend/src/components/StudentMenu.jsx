@@ -131,7 +131,6 @@ export default function StudentMenu({ setIsLoggedIn, userEmail }) {
           <div>
             <h2 className="text-2xl font-semibold">My Assignments</h2>
             <p className="text-sm text-gray-600">
-              Practice SQL with assignments created by your teachers
             </p>
           </div>
         </div>

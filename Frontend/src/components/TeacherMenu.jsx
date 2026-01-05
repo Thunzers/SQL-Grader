@@ -9,7 +9,7 @@ import ConfirmModal from "./ConfirmModal";
 
 const API_BASE = "http://localhost:5000";
 
-export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
+export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }) {
   const [openProfile, setOpenProfile] = useState(false);
   const [activeTab, setActiveTab] = useState("assignments"); // assignments, datasets
 
@@ -171,7 +171,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
     if (assignment) {
       setEditingAssignment(assignment);
       setAssignmentForm({
-        category: assignment.category || "SELECT",
+        category: assignment.category || "",
         title: assignment.title || "",
         description: assignment.description || "",
         start_date: assignment.start_date ? assignment.start_date.split("T")[0] : "",
@@ -182,7 +182,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
     } else {
       setEditingAssignment(null);
       setAssignmentForm({
-        category: "SELECT",
+        category: "",
         title: "",
         description: "",
         start_date: "",
@@ -217,7 +217,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
           ...assignmentForm,
           start_date: assignmentForm.start_date || null,
           due_date: assignmentForm.due_date || null,
-          created_by: userEmail
+          created_by: studentId
         })
       });
 
@@ -402,7 +402,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...datasetForm, created_by: userEmail })
+        body: JSON.stringify({ ...datasetForm, created_by: studentId })
       });
 
       const data = await res.json();
@@ -698,7 +698,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   onClick={() => openAssignmentForm()}
                   className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm transition"
                 >
-                  <Plus size={18} /> สร้างใหม่
+                  เพิ่ม
                 </button>
               </div>
 
@@ -752,15 +752,15 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => openAssignmentForm(selectedAssignment)}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm transition"
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-lg flex items-center gap-1 text-sm transition"
                       >
-                        <Edit3 size={16} /> แก้ไข
+                        <Edit3 size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteAssignment(selectedAssignment.assign_id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm transition"
+                        className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg flex items-center gap-1 text-sm transition"
                       >
-                        <Trash2 size={16} /> ลบ
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
@@ -773,7 +773,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                       onClick={() => openExerciseForm()}
                       className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm transition"
                     >
-                      <Plus size={18} /> เพิ่มข้อ
+                      เพิ่มข้อ
                     </button>
                   </div>
 
@@ -811,14 +811,14 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                             <div className="flex gap-2 ml-4">
                               <button
                                 onClick={() => openExerciseForm(ex)}
-                                className="p-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition"
+                                className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
                                 title="แก้ไข"
                               >
                                 <Edit3 size={16} />
                               </button>
                               <button
                                 onClick={() => handleDeleteExercise(ex.exercise_id)}
-                                className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
+                                className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
                                 title="ลบ"
                               >
                                 <Trash2 size={16} />
@@ -847,9 +847,9 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
               <h2 className="text-xl font-bold text-gray-800">Datasets (ฐานข้อมูลจำลอง)</h2>
               <button
                 onClick={() => openDatasetForm()}
-                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
+                className="bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg flex items-center gap-2 transition"
               >
-                <Plus size={18} /> สร้าง Dataset
+                สร้าง Dataset
               </button>
             </div>
 
@@ -869,14 +869,14 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                       <div className="flex gap-2">
                         <button
                           onClick={() => openDatasetForm(ds)}
-                          className="text-blue-600 hover:bg-blue-50 p-1.5 rounded transition"
+                          className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
                           title="แก้ไข"
                         >
                           <Edit3 size={16} />
                         </button>
                         <button
                           onClick={() => handleDeleteDataset(ds.dataset_id)}
-                          className="text-red-600 hover:bg-red-50 p-1.5 rounded transition"
+                          className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
                           title="ลบ"
                         >
                           <Trash2 size={16} />
@@ -923,8 +923,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   <option value="JOIN">JOIN</option>
                   <option value="GROUP BY">GROUP BY</option>
                   <option value="Subquery">Subquery</option>
-                  <option value="DDL">DDL</option>
-                  <option value="DML">DML</option>
                 </select>
               </div>
 
@@ -936,7 +934,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   type="text"
                   value={assignmentForm.title}
                   onChange={(e) => setAssignmentForm({ ...assignmentForm, title: e.target.value })}
-                  placeholder="เช่น SELECT พื้นฐาน ชุดที่ 1"
+                  placeholder="เช่น SELECT เบื้องต้น"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                   required
                 />
@@ -1018,7 +1016,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   disabled={saving}
                   className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition font-semibold disabled:bg-teal-300 flex items-center justify-center gap-2"
                 >
-                  <Save size={18} />
+
                   {saving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
               </div>
@@ -1031,7 +1029,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
       {showExerciseModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="bg-indigo-700 text-white p-4 flex justify-between items-center">
+            <div className="bg-teal-700 text-white p-4 flex justify-between items-center">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <FileText size={22} />
                 {editingExercise ? "แก้ไข Exercise" : "สร้าง Exercise ใหม่"}
@@ -1101,9 +1099,9 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                     type="button"
                     onClick={handleTestSQL}
                     disabled={testingSQL || !exerciseForm.expected_query}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm transition disabled:bg-blue-300"
+                    className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm transition disabled:bg-teal-300"
                   >
-                    {testingSQL ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                    {testingSQL ? <Loader2 size={16} className="animate-spin" /> : ""}
                     {testingSQL ? "กำลังทดสอบ..." : "ทดสอบ SQL"}
                   </button>
                 </div>
@@ -1162,9 +1160,9 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                       <button
                         type="button"
                         onClick={() => openTestCaseForm()}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1"
+                        className="bg-teal-500 hover:bg-teal-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1"
                       >
-                        <Plus size={14} /> เพิ่ม Test Case
+                        เพิ่ม Test Case
                       </button>
                     )}
                   </div>
@@ -1191,7 +1189,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                             <button
                               type="button"
                               onClick={() => openTestCaseForm(tc)}
-                              className="p-1 text-blue-500 hover:bg-blue-100 rounded"
+                              className="p-1 bg-yellow-500 text-white hover:bg-yellow-600 rounded"
                               title="แก้ไข Test Case"
                             >
                               <Edit3 size={14} />
@@ -1199,7 +1197,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                             <button
                               type="button"
                               onClick={() => handleDeleteTestCase(tc.case_id)}
-                              className="p-1 text-red-500 hover:bg-red-100 rounded"
+                              className="p-1 bg-red-500 text-white hover:bg-red-600 rounded"
                               title="ลบ Test Case"
                             >
                               <Trash2 size={14} />
@@ -1280,9 +1278,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition font-semibold disabled:bg-indigo-300 flex items-center justify-center gap-2"
+                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition font-semibold disabled:bg-teal-300 flex items-center justify-center gap-2"
                 >
-                  <Save size={18} />
                   {saving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
               </div>
@@ -1295,7 +1292,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
       {showDatasetModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="bg-purple-700 text-white p-4 flex justify-between items-center">
+            <div className="bg-teal-600 text-white p-4 flex justify-between items-center">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Database size={22} /> {editingDataset ? "แก้ไข Dataset" : "สร้าง Dataset ใหม่"}
               </h2>
@@ -1313,7 +1310,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   type="text"
                   value={datasetForm.name}
                   onChange={(e) => setDatasetForm({ ...datasetForm, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                   required
                 />
               </div>
@@ -1324,7 +1321,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   type="text"
                   value={datasetForm.description}
                   onChange={(e) => setDatasetForm({ ...datasetForm, description: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                 />
               </div>
 
@@ -1337,7 +1334,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   onChange={(e) => setDatasetForm({ ...datasetForm, schema_sql: e.target.value })}
 
                   rows={6}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
                   required
                 />
               </div>
@@ -1351,7 +1348,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   onChange={(e) => setDatasetForm({ ...datasetForm, seed_data_sql: e.target.value })}
 
                   rows={6}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
                   required
                 />
               </div>
@@ -1367,9 +1364,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition font-semibold disabled:bg-purple-300 flex items-center justify-center gap-2"
+                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition font-semibold disabled:bg-teal-300 flex items-center justify-center gap-2"
                 >
-                  <Save size={18} />
                   {saving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
               </div>
@@ -1382,7 +1378,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
       {showTestCaseModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="bg-orange-600 text-white p-4 flex justify-between items-center">
+            <div className="bg-teal-600 text-white p-4 flex justify-between items-center">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <CheckCircle size={22} />
                 {editingTestCase ? "แก้ไข Test Case" : "สร้าง Test Case ใหม่"}
@@ -1402,7 +1398,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   value={testCaseForm.case_name}
                   onChange={(e) => setTestCaseForm({ ...testCaseForm, case_name: e.target.value })}
                   placeholder="เช่น Test Case 1"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                   required
                 />
               </div>
@@ -1416,7 +1412,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                   onChange={(e) => setTestCaseForm({ ...testCaseForm, expected_output: e.target.value })}
                   rows={8}
                   placeholder='{"columns": ["name", "salary"], "rows": [{"name": "John", "salary": 50000}], "row_count": 1}'
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -1432,7 +1428,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                     min="1"
                     value={testCaseForm.points}
                     onChange={(e) => setTestCaseForm({ ...testCaseForm, points: parseInt(e.target.value) || 1 })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                   />
                 </div>
                 <div className="flex items-center pt-6">
@@ -1441,7 +1437,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                       type="checkbox"
                       checked={testCaseForm.is_hidden}
                       onChange={(e) => setTestCaseForm({ ...testCaseForm, is_hidden: e.target.checked })}
-                      className="w-4 h-4 text-orange-600 rounded"
+                      className="w-4 h-4 text-teal-600 rounded"
                     />
                     <span className="text-sm text-gray-700">ซ่อนจากนักศึกษา</span>
                   </label>
@@ -1459,9 +1455,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail }) {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition font-semibold disabled:bg-orange-300 flex items-center justify-center gap-2"
+                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition font-semibold disabled:bg-teal-300 flex items-center justify-center gap-2"
                 >
-                  <Save size={18} />
                   {saving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
               </div>

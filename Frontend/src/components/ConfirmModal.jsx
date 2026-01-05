@@ -33,17 +33,17 @@ const colorMap = {
   danger: {
     iconBg: "bg-red-100",
     iconColor: "text-red-600",
-    confirmBtn: "bg-red-600 hover:bg-red-700"
+    confirmBtn: "bg-teal-600 hover:bg-teal-700"
   },
   warning: {
     iconBg: "bg-yellow-100",
     iconColor: "text-yellow-600",
-    confirmBtn: "bg-yellow-600 hover:bg-yellow-700"
+    confirmBtn: "bg-teal-600 hover:bg-teal-700"
   },
   info: {
     iconBg: "bg-blue-100",
     iconColor: "text-blue-600",
-    confirmBtn: "bg-blue-600 hover:bg-blue-700"
+    confirmBtn: "bg-teal-600 hover:bg-teal-700"
   }
 };
 

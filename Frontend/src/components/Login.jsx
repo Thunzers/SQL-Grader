@@ -2,16 +2,6 @@ import { useState, useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function Login({ onLoginSuccess }) {
-  const [showPassword, setShowPassword] = useState(false);
-
-  // State สำหรับเก็บค่าที่พิมพ์
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  // State สำหรับจัดการสถานะการโหลดและ Error
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-
   // Google Login Initialization
   useEffect(() => {
     if (typeof window === 'undefined' || !window.google) return;
@@ -34,8 +24,7 @@ export default function Login({ onLoginSuccess }) {
 
   const handleGoogleLogin = async (response) => {
     const token = response.credential;
-    setIsLoading(true);
-    setErrorMsg("");
+
 
     try {
       const res = await fetch("http://localhost:5000/auth/google", {
@@ -57,7 +46,7 @@ export default function Login({ onLoginSuccess }) {
           console.log("Saved to localStorage:", data.student_id);
         }
 
-        onLoginSuccess(data.email, data.role);
+        onLoginSuccess(data.email, data.role, data.student_id);
       } else {
         setErrorMsg(data.error || "Login failed (Unknown Error from Server)");
       }
