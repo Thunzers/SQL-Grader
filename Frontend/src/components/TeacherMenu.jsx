@@ -327,6 +327,25 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
 
       const data = await res.json();
       if (res.ok) {
+        if (!editingExercise && testCases.length > 0) {
+          const newExerciseId = data.exercise.exercise_id;
+          // Save all temp test cases
+          for (const tc of testCases) {
+            if (tc.is_temp) {
+              await fetch(`${API_BASE}/api/exercises/${newExerciseId}/test-cases`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  case_name: tc.case_name,
+                  expected_output: tc.expected_output,
+                  points: tc.points,
+                  is_hidden: tc.is_hidden
+                })
+              });
+            }
+          }
+        }
+
         notify("success", editingExercise ? "แก้ไข Exercise สำเร็จ!" : "สร้าง Exercise สำเร็จ!");
         setShowExerciseModal(false);
         fetchExercises(selectedAssignment.assign_id);
@@ -537,16 +556,62 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
 
     setSaving(true);
     try {
-      // สำหรับ create ใหม่ต้องมี exercise_id
+      // สำหรับ create ใหม่ต้องมี exercise_id หรือเป็นโหมดสร้างใหม่ (เก็บลง state)
       const exerciseId = editingExercise?.exercise_id;
-      if (!exerciseId && !editingTestCase) {
-        alert("กรุณาบันทึก Exercise ก่อน แล้วจึงสร้าง Test Case");
+
+      // CASE 1: New Exercise (Temp Save)
+      if (!exerciseId) {
+        if (editingTestCase) {
+          // Edit Temp Case
+          setTestCases(testCases.map(tc =>
+            tc.case_id === editingTestCase.case_id
+              ? {
+                ...tc,
+                case_name: testCaseForm.case_name,
+                expected_output: expectedOutputJson,
+                points: testCaseForm.points,
+                is_hidden: testCaseForm.is_hidden
+              }
+              : tc
+          ));
+        } else {
+          // Add New Temp Case
+          const newTemp = {
+            case_id: `temp-${Date.now()}`,
+            case_name: testCaseForm.case_name,
+            expected_output: expectedOutputJson,
+            points: testCaseForm.points,
+            is_hidden: testCaseForm.is_hidden,
+            is_temp: true
+          };
+          setTestCases([...testCases, newTemp]);
+        }
+        setShowTestCaseModal(false);
         setSaving(false);
         return;
       }
 
+      // CASE 2: Existing Exercise (Real DB Save)
       if (editingTestCase) {
-        // Update existing test case
+        if (editingTestCase.is_temp) {
+          // Updating a temp case while in Edit Mode (shouldn't happen often but valid)
+          setTestCases(testCases.map(tc =>
+            tc.case_id === editingTestCase.case_id
+              ? {
+                ...tc,
+                case_name: testCaseForm.case_name,
+                expected_output: expectedOutputJson,
+                points: testCaseForm.points,
+                is_hidden: testCaseForm.is_hidden
+              }
+              : tc
+          ));
+          setShowTestCaseModal(false);
+          setSaving(false);
+          return;
+        }
+
+        // Update existing test case in DB
         const res = await fetch(`${API_BASE}/api/test-cases/${editingTestCase.case_id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -566,7 +631,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
           notify("error", data.error || "เกิดข้อผิดพลาด");
         }
       } else {
-        // Create new test case
+        // Create new test case in DB
         const res = await fetch(`${API_BASE}/api/exercises/${exerciseId}/test-cases`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -603,6 +668,13 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
       confirmText: "ลบ",
       onConfirm: async () => {
         try {
+          // Check if temp case
+          if (typeof caseId === 'string' && caseId.startsWith('temp-')) {
+            setTestCases(testCases.filter(tc => tc.case_id !== caseId));
+            notify("success", "ลบ Test Case สำเร็จ!");
+            return;
+          }
+
           const res = await fetch(`${API_BASE}/api/test-cases/${caseId}`, { method: "DELETE" });
           if (res.ok) {
             notify("success", "ลบ Test Case สำเร็จ!");
@@ -1156,19 +1228,15 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                     <h4 className="font-semibold text-gray-700 flex items-center gap-1">
                       <CheckCircle size={16} /> Test Cases ({testCases.length})
                     </h4>
-                    {editingExercise && (
-                      <button
-                        type="button"
-                        onClick={() => openTestCaseForm()}
-                        className="bg-teal-500 hover:bg-teal-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1"
-                      >
-                        เพิ่ม Test Case
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => openTestCaseForm()}
+                      className="bg-teal-500 hover:bg-teal-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1"
+                    >
+                      เพิ่ม Test Case
+                    </button>
                   </div>
-                  {!editingExercise ? (
-                    <p className="text-sm text-gray-500">บันทึก Exercise ก่อน จึงจะสามารถเพิ่ม Test Case ได้</p>
-                  ) : loadingTestCases ? (
+                  {loadingTestCases ? (
                     <p className="text-sm text-gray-500">กำลังโหลด...</p>
                   ) : testCases.length === 0 ? (
                     <p className="text-sm text-gray-500">ยังไม่มี Test Case - กดปุ่ม "เพิ่ม Test Case" เพื่อสร้าง</p>

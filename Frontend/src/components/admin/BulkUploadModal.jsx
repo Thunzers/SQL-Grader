@@ -56,8 +56,8 @@ export default function BulkUploadModal({ isOpen, onClose, onUploadComplete }) {
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col animate-scale-in">
 
                 {/* Modal Header */}
-                <div className="bg-teal-700 text-white p-4 flex justify-between items-center">
-                    <h2 className="text-lg font-bold flex items-center gap-2 bg-teal-700">
+                <div className="bg-indigo-700 text-white p-4 flex justify-between items-center">
+                    <h2 className="text-lg font-bold flex items-center gap-2">
                         <Upload size={22} /> อัปโหลดผู้ใช้จาก Excel
                     </h2>
                     <button onClick={resetBulkUpload} className="hover:bg-white/20 p-1 rounded-full text-white">
