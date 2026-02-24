@@ -29,7 +29,7 @@ async def google_auth(request: Request):
             token,
             request_google,
             CLIENT_ID,
-            clock_skew_in_seconds=10
+            clock_skew_in_seconds=60
         )
 
         email = payload.get('email')

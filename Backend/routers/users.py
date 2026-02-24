@@ -22,6 +22,23 @@ def get_users():
 
     return JSONResponse([serialize_row(u) for u in users], status_code=200)
 
+@router.get("/api/users/profile")
+def get_user_profile(email: str):
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database error"}, status_code=500)
+
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT student_id, name, surname, email, role FROM users WHERE email = %s", (email,))
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if user:
+        return JSONResponse({"success": True, "user": serialize_row(user)}, status_code=200)
+    else:
+        return JSONResponse({"error": "User not found"}, status_code=404)
+
 @router.put("/api/users/{student_id}/role")
 async def update_user_role(student_id: str, request: Request):
     try:

@@ -1029,7 +1029,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                     <Calendar size={14} className="inline mr-1" /> วันเริ่มต้น
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     value={assignmentForm.start_date}
                     onChange={(e) => setAssignmentForm({ ...assignmentForm, start_date: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
@@ -1040,7 +1040,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                     <Calendar size={14} className="inline mr-1" /> วันหมดเขต
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     value={assignmentForm.due_date}
                     onChange={(e) => setAssignmentForm({ ...assignmentForm, due_date: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"

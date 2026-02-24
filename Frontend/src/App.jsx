@@ -39,6 +39,29 @@ export default function App() {
     }
   }, [isLoggedIn, userEmail, role, studentId]);
 
+  // Sync role with backend on mount/refresh
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (isLoggedIn && userEmail) {
+        try {
+          const res = await fetch(`http://localhost:5000/api/users/profile?email=${userEmail}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.user.role !== role) {
+              setRole(data.user.role);
+              // Update localStorage immediately to prevent race conditions
+              const currentSession = JSON.parse(localStorage.getItem("session") || "{}");
+              localStorage.setItem("session", JSON.stringify({ ...currentSession, role: data.user.role }));
+            }
+          }
+        } catch (error) {
+          console.error("Error syncing profile:", error);
+        }
+      }
+    };
+    fetchProfile();
+  }, [isLoggedIn, userEmail]);
+
   function handleLoginSuccess(email, userRole, sId) {
     setUserEmail(email);
     setRole(userRole);

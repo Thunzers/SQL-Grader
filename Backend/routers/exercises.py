@@ -96,11 +96,32 @@ async def create_exercise(assign_id: int, request: Request):
             conn.close()
             return JSONResponse({"error": "Assignment not found"}, status_code=404)
 
+        
+        # 1. Determine safe default order (Append to end)
+        cur.execute("SELECT COALESCE(MAX(order_num), 0) + 1 as max_order FROM exercises WHERE assign_id = %s", (assign_id,))
+        default_order = cur.fetchone()['max_order']
+        
+        # 2. Use user provided order or default
+        requested_order = data.get("order_num")
+        if requested_order is None or requested_order == 0:
+            final_order = default_order
+        else:
+            final_order = int(requested_order)
+        
+        # 3. Check for conflict at final_order
+        cur.execute("SELECT exercise_id FROM exercises WHERE assign_id = %s AND order_num = %s", (assign_id, final_order))
+        conflict_ex = cur.fetchone()
+        
+        if conflict_ex:
+            # Swap: Move the conflicting exercise to the default (end) position
+            # This effectively "replaces" it with the new one at that position
+            cur.execute("UPDATE exercises SET order_num = %s WHERE exercise_id = %s", (default_order, conflict_ex['exercise_id']))
+
         cur.execute("""
             INSERT INTO exercises (assign_id, dataset_id, title, description, expected_query, points, difficulty, order_num, hint, show_solution)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
-        """, (assign_id, dataset_id, title, description, expected_query, points, difficulty, order_num, hint, show_solution))
+        """, (assign_id, dataset_id, title, description, expected_query, points, difficulty, final_order, hint, show_solution))
         new_exercise = cur.fetchone()
         conn.commit()
         cur.close()
@@ -169,6 +190,36 @@ async def update_exercise(exercise_id: int, request: Request):
 
         values.append(exercise_id)
         query = f"UPDATE exercises SET {', '.join(update_fields)} WHERE exercise_id = %s RETURNING *"
+
+        # Logic for swapping order_num if changed
+        if "order_num" in data:
+            new_order = int(data["order_num"])
+            
+            # 1. Get current info (assign_id, old_order)
+            cur.execute("SELECT assign_id, order_num FROM exercises WHERE exercise_id = %s", (exercise_id,))
+            current_ex = cur.fetchone()
+            
+            if not current_ex:
+                cur.close()
+                conn.close()
+                return JSONResponse({"error": "Exercise not found"}, status_code=404)
+            
+            assign_id = current_ex['assign_id']
+            old_order = current_ex['order_num']
+            
+            # 2. Check if another exercise has this new_order
+            if new_order != old_order:
+                cur.execute("""
+                    SELECT exercise_id FROM exercises 
+                    WHERE assign_id = %s AND order_num = %s AND exercise_id != %s
+                """, (assign_id, new_order, exercise_id))
+                conflict_ex = cur.fetchone()
+                
+                # 3. If conflict -> Swap: Set the other exercise's order to old_order
+                if conflict_ex:
+                    cur.execute("""
+                        UPDATE exercises SET order_num = %s WHERE exercise_id = %s
+                    """, (old_order, conflict_ex['exercise_id']))
 
         cur.execute(query, values)
         updated = cur.fetchone()
