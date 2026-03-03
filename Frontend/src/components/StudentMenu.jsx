@@ -8,9 +8,17 @@ export default function StudentMenu({ setIsLoggedIn, userEmail }) {
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Get student ID from session
+  const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
+  const studentId = sessionData.studentId;
+
   // Fetch Assignments
   useEffect(() => {
-    fetch("http://localhost:5000/api/assignments")
+    const url = studentId 
+      ? `http://localhost:5000/api/assignments?student_id=${studentId}`
+      : "http://localhost:5000/api/assignments";
+      
+    fetch(url)
       .then((res) => {
         if (!res.ok) {
           throw new Error("Network response was not ok");
@@ -148,9 +156,16 @@ export default function StudentMenu({ setIsLoggedIn, userEmail }) {
 
                 {/* Footer */}
                 <div className="px-4 py-3 space-y-2 text-sm text-gray-700">
-                  <div className="flex items-center gap-2">
-                    <BookOpen size={16} className="text-gray-500" />
-                    <span>{assignment.exercise_count || 0} Exercises</span>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <BookOpen size={16} className="text-gray-500" />
+                      <span>{assignment.completed_exercises || 0} / {assignment.exercise_count || 0} ผ่านแล้ว</span>
+                    </div>
+                    {assignment.user_score !== undefined && (
+                      <div className="font-semibold text-teal-700">
+                        {assignment.user_score} / {assignment.max_score || 0} คะแนน
+                      </div>
+                    )}
                   </div>
                   {assignment.due_date && (
                     <div className="flex items-center gap-2">

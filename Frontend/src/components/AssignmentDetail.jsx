@@ -9,17 +9,25 @@ export default function AssignmentDetail() {
   const [exercises, setExercises] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Get student ID from session
+  const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
+  const studentId = sessionData.studentId;
+
   useEffect(() => {
     if (!assignmentId) return;
 
+    const assignUrl = studentId 
+      ? `http://localhost:5000/api/assignments/${assignmentId}?student_id=${studentId}`
+      : `http://localhost:5000/api/assignments/${assignmentId}`;
+      
+    const exercisesUrl = studentId
+      ? `http://localhost:5000/api/assignments/${assignmentId}/exercises?student_id=${studentId}`
+      : `http://localhost:5000/api/assignments/${assignmentId}/exercises`;
+
     // Fetch Assignment Info
     Promise.all([
-      fetch(`http://localhost:5000/api/assignments/${assignmentId}`).then((res) =>
-        res.json()
-      ),
-      fetch(`http://localhost:5000/api/assignments/${assignmentId}/exercises`).then(
-        (res) => res.json()
-      ),
+      fetch(assignUrl).then((res) => res.json()),
+      fetch(exercisesUrl).then((res) => res.json()),
     ])
       .then(([assignmentData, exercisesData]) => {
         setAssignment(assignmentData);
@@ -111,12 +119,12 @@ export default function AssignmentDetail() {
                 )}
               </div>
             </div>
-            <div className="bg-white/20 px-6 py-4 rounded-lg text-center">
+            <div className="bg-white/20 px-6 py-4 rounded-lg text-center min-w-[120px]">
               <div className="text-3xl font-bold">
-                {assignment?.total_score || 0}
+                {assignment?.user_score !== undefined ? assignment.user_score : 0}
               </div>
               <div className="text-xs text-teal-100">
-                / {assignment?.max_score || 0} points
+                / {assignment?.max_score || 0} คะแนน
               </div>
             </div>
           </div>

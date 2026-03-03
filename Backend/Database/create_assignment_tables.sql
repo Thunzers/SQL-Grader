@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS exercises (
     order_num INT DEFAULT 0,             -- ลำดับโจทย์
     hint TEXT,                           -- คำใบ้
     show_solution BOOLEAN DEFAULT FALSE, -- แสดงเฉลยหลังส่ง
+    required_keywords JSONB DEFAULT '[]', -- คำสั่ง SQL ที่ต้องมี เช่น ["WHERE", "AND"]
     created_at TIMESTAMP DEFAULT NOW()
 );
 

@@ -116,11 +116,39 @@ def run_sql_on_sandbox(schema_sql: str, seed_sql: str, query: str):
 
     return result
 
-def evaluate_test_cases(student_result, test_cases):
+import re
+
+def check_required_keywords(query, required_keywords):
+    """
+    Check if the student's SQL query contains all required keywords.
+    Returns { passed: bool, missing: list }
+    """
+    if not required_keywords:
+        return {"passed": True, "missing": []}
+    
+    # Normalize query: uppercase, collapse whitespace
+    normalized = re.sub(r'\s+', ' ', query.upper().strip())
+    
+    missing = []
+    for kw in required_keywords:
+        # Normalize keyword the same way
+        kw_upper = re.sub(r'\s+', ' ', kw.upper().strip())
+        if kw_upper not in normalized:
+            missing.append(kw)
+    
+    return {"passed": len(missing) == 0, "missing": missing}
+
+
+def evaluate_test_cases(student_result, test_cases, required_keywords=None, student_query=None):
     results = []
     total_score = 0
     max_score = 0
     all_passed = True
+    
+    # Check required keywords once (applies to all test cases)
+    keyword_check = None
+    if required_keywords and student_query:
+        keyword_check = check_required_keywords(student_query, required_keywords)
 
     for tc in test_cases:
         max_points = tc.get("points", 0)
@@ -182,6 +210,12 @@ def evaluate_test_cases(student_result, test_cases):
                 except Exception as e:
                     is_passed = False
                     error_msg = f"Error comparing rows: {str(e)}"
+
+            # If output matches but keywords are missing, fail the test case
+            if is_passed and keyword_check and not keyword_check["passed"]:
+                is_passed = False
+                missing_str = ", ".join(keyword_check["missing"])
+                error_msg = f"Missing required SQL keywords: {missing_str}"
 
             points_earned = max_points if is_passed else 0
             total_score += points_earned

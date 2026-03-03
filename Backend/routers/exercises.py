@@ -9,20 +9,42 @@ router = APIRouter()
 
 # Get exercises for an assignment
 @router.get("/api/assignments/{assign_id}/exercises")
-def get_exercises(assign_id: int):
+def get_exercises(assign_id: int, student_id: str = None):
     conn = get_db_connection()
     if not conn:
         return JSONResponse({"error": "Database connection failed"}, status_code=500)
 
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("""
-            SELECT e.*, d.name as dataset_name
-            FROM exercises e
-            LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
-            WHERE e.assign_id = %s
-            ORDER BY e.order_num ASC, e.exercise_id ASC
-        """, (assign_id,))
+        
+        if student_id:
+            cur.execute("""
+                SELECT e.*, d.name as dataset_name,
+                       COALESCE(sub.user_score, 0) as user_score,
+                       CASE 
+                           WHEN sub.is_correct = TRUE THEN 'completed'
+                           WHEN sub.user_score > 0 THEN 'attempted'
+                           ELSE 'unattempted'
+                       END as status
+                FROM exercises e
+                LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+                LEFT JOIN (
+                    SELECT exercise_id, MAX(total_score) as user_score, bool_or(is_correct) as is_correct
+                    FROM submissions
+                    WHERE student_id = %s
+                    GROUP BY exercise_id
+                ) sub ON e.exercise_id = sub.exercise_id
+                WHERE e.assign_id = %s
+                ORDER BY e.order_num ASC, e.exercise_id ASC
+            """, (student_id, assign_id))
+        else:
+            cur.execute("""
+                SELECT e.*, d.name as dataset_name
+                FROM exercises e
+                LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+                WHERE e.assign_id = %s
+                ORDER BY e.order_num ASC, e.exercise_id ASC
+            """, (assign_id,))
         exercises = cur.fetchall()
         cur.close()
         conn.close()
@@ -75,6 +97,7 @@ async def create_exercise(assign_id: int, request: Request):
     order_num = data.get("order_num", 0)
     hint = data.get("hint")
     show_solution = data.get("show_solution", False)
+    required_keywords = data.get("required_keywords", [])
 
     if not all([title, description, expected_query]):
         return JSONResponse({"error": "Required fields: title, description, expected_query"}, status_code=400)
@@ -118,10 +141,10 @@ async def create_exercise(assign_id: int, request: Request):
             cur.execute("UPDATE exercises SET order_num = %s WHERE exercise_id = %s", (default_order, conflict_ex['exercise_id']))
 
         cur.execute("""
-            INSERT INTO exercises (assign_id, dataset_id, title, description, expected_query, points, difficulty, order_num, hint, show_solution)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO exercises (assign_id, dataset_id, title, description, expected_query, points, difficulty, order_num, hint, show_solution, required_keywords)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
-        """, (assign_id, dataset_id, title, description, expected_query, points, difficulty, final_order, hint, show_solution))
+        """, (assign_id, dataset_id, title, description, expected_query, points, difficulty, final_order, hint, show_solution, json.dumps(required_keywords)))
         new_exercise = cur.fetchone()
         conn.commit()
         cur.close()
@@ -184,6 +207,9 @@ async def update_exercise(exercise_id: int, request: Request):
         if "show_solution" in data:
             update_fields.append("show_solution = %s")
             values.append(data["show_solution"])
+        if "required_keywords" in data:
+            update_fields.append("required_keywords = %s")
+            values.append(json.dumps(data["required_keywords"]))
 
         if not update_fields:
             return JSONResponse({"error": "No fields to update"}, status_code=400)
@@ -541,8 +567,11 @@ async def run_exercise_test(exercise_id: int, request: Request):
         if "error" in student_result:
             return JSONResponse({"success": False, "error": student_result["error"]}, status_code=400)
 
-        # Evaluate test cases
-        test_results = evaluate_test_cases(student_result, test_cases)
+        # Evaluate test cases (with keyword check)
+        required_keywords = exercise.get("required_keywords") or []
+        if isinstance(required_keywords, str):
+            required_keywords = json.loads(required_keywords)
+        test_results = evaluate_test_cases(student_result, test_cases, required_keywords=required_keywords, student_query=query)
 
         # Return combined result
         return JSONResponse({
@@ -727,8 +756,11 @@ async def submit_exercise(exercise_id: int, request: Request):
         # Compare with test cases
         import json
         
-        # Use existing helper
-        test_evaluation = evaluate_test_cases(student_result, test_cases)
+        # Use existing helper (with keyword check)
+        required_keywords = exercise.get("required_keywords") or []
+        if isinstance(required_keywords, str):
+            required_keywords = json.loads(required_keywords)
+        test_evaluation = evaluate_test_cases(student_result, test_cases, required_keywords=required_keywords, student_query=query)
         
         all_passed = test_evaluation["is_correct"]
         total_score = test_evaluation["total_score"]

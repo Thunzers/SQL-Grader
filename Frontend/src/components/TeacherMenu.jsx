@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import {
   ChevronDown, LogOut, User, FilePlus, Users, ClipboardList,
   X, Save, Plus, Trash2, Edit3, BookOpen, Database, ChevronRight,
-  Calendar, Target, FileText, Play, CheckCircle, XCircle, Loader2
+  Calendar, Target, FileText, Play, CheckCircle, XCircle, Loader2,
+  Tag, Key
 } from "lucide-react";
 import Notification from "./Notification";
 import ConfirmModal from "./ConfirmModal";
@@ -21,6 +22,11 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
   // Exercises State
   const [exercises, setExercises] = useState([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
+
+  // Assignment Tabs State
+  const [activeAssignTab, setActiveAssignTab] = useState("exercises"); // exercises, progress
+  const [studentProgress, setStudentProgress] = useState([]);
+  const [loadingProgress, setLoadingProgress] = useState(false);
 
   // Datasets State
   const [datasets, setDatasets] = useState([]);
@@ -131,6 +137,22 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
     }
   };
 
+  // Fetch student progress for an assignment
+  const fetchStudentProgress = async (assignId) => {
+    setLoadingProgress(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/assignments/${assignId}/student-progress`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setStudentProgress(data);
+      }
+    } catch (error) {
+      console.error("Error fetching student progress:", error);
+    } finally {
+      setLoadingProgress(false);
+    }
+  };
+
   // Fetch datasets
   const fetchDatasets = async () => {
     setLoadingDatasets(true);
@@ -160,10 +182,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
     }
   };
 
-  // Select assignment to view exercises
-  const handleSelectAssignment = (assignment) => {
-    setSelectedAssignment(assignment);
-    fetchExercises(assignment.assign_id);
+  // Handle Assignment Selection
+  const handleSelectAssignment = (assign) => {
+    setSelectedAssignment(assign);
+    setActiveAssignTab("exercises"); // default to exercises
+    fetchExercises(assign.assign_id);
+    fetchStudentProgress(assign.assign_id);
   };
 
   // Open Assignment Modal (Create/Edit)
@@ -280,7 +304,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
         difficulty: exercise.difficulty || "medium",
         order_num: exercise.order_num || 0,
         hint: exercise.hint || "",
-        show_solution: exercise.show_solution || false
+        show_solution: exercise.show_solution || false,
+        required_keywords: exercise.required_keywords || []
       });
       fetchTestCases(exercise.exercise_id);
     } else {
@@ -294,7 +319,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
         difficulty: "medium",
         order_num: exercises.length + 1,
         hint: "",
-        show_solution: false
+        show_solution: false,
+        required_keywords: []
       });
     }
     setShowExerciseModal(true);
@@ -839,66 +865,173 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
 
                   <hr className="my-4" />
 
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-700">Exercises</h3>
+                  {/* === ASSIGNMENT TABS === */}
+                  <div className="flex border-b border-gray-200 mb-4">
                     <button
-                      onClick={() => openExerciseForm()}
-                      className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm transition"
+                      className={`px-4 py-2 font-medium text-sm transition ${activeAssignTab === "exercises"
+                        ? "border-b-2 border-teal-600 text-teal-700"
+                        : "text-gray-500 hover:text-teal-600 hover:bg-gray-50"
+                        }`}
+                      onClick={() => setActiveAssignTab("exercises")}
                     >
-                      เพิ่มข้อ
+                      <div className="flex items-center gap-2">
+                        <BookOpen size={16} /> แบบฝึกหัด
+                      </div>
+                    </button>
+                    <button
+                      className={`px-4 py-2 font-medium text-sm transition ${activeAssignTab === "progress"
+                        ? "border-b-2 border-teal-600 text-teal-700"
+                        : "text-gray-500 hover:text-teal-600 hover:bg-gray-50"
+                        }`}
+                      onClick={() => setActiveAssignTab("progress")}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users size={16} /> ความคืบหน้านักศึกษา
+                      </div>
                     </button>
                   </div>
 
-                  {loadingExercises ? (
-                    <p className="text-gray-500 text-center py-4">กำลังโหลด...</p>
-                  ) : exercises.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">ยังไม่มี Exercise ใน Assignment นี้</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {exercises.map((ex, idx) => (
-                        <div
-                          key={ex.exercise_id}
-                          className="p-4 border border-gray-200 rounded-lg hover:border-teal-300 transition"
+                  {activeAssignTab === "exercises" && (
+                    <>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-700">Exercises</h3>
+                        <button
+                          onClick={() => openExerciseForm()}
+                          className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm transition"
                         >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-semibold text-gray-600">ข้อ {idx + 1}:</span>
-                                <span className={`text-xs px-2 py-0.5 rounded ${getDifficultyColor(ex.difficulty)}`}>
-                                  {ex.difficulty}
-                                </span>
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
-                                  {ex.points} คะแนน
-                                </span>
-                              </div>
-                              <h4 className="font-semibold text-gray-800">{ex.title}</h4>
-                              <p className="text-sm text-gray-500 mt-1 line-clamp-2">{ex.description}</p>
-                              {ex.dataset_name && (
-                                <p className="text-xs text-teal-600 mt-1">
-                                  <Database size={12} className="inline mr-1" />
-                                  Dataset: {ex.dataset_name}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex gap-2 ml-4">
-                              <button
-                                onClick={() => openExerciseForm(ex)}
-                                className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
-                                title="แก้ไข"
-                              >
-                                <Edit3 size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteExercise(ex.exercise_id)}
-                                className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-                                title="ลบ"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
+                          <Plus size={16} /> สร้างโจทย์
+                        </button>
+                      </div>
+
+                      {loadingExercises ? (
+                        <div className="flex items-center gap-2 text-teal-600">
+                          <Loader2 size={20} className="animate-spin" />
+                          <span>กำลังโหลด...</span>
                         </div>
-                      ))}
+                      ) : exercises.length === 0 ? (
+                        <p className="text-gray-500 italic">ยังไม่มีโจทย์ใน Assignment นี้</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {exercises.map((ex, index) => (
+                            <div key={ex.exercise_id} className="p-4 border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50/30 transition flex justify-between items-center group">
+                              <div className="flex items-start gap-3">
+                                <span className="text-gray-400 font-mono mt-0.5">{index + 1}.</span>
+                                <div>
+                                  <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                                    {ex.title}
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${ex.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
+                                        ex.difficulty === 'hard' ? 'bg-red-100 text-red-700' :
+                                          'bg-yellow-100 text-yellow-700'
+                                      }`}>
+                                      {ex.difficulty || 'medium'}
+                                    </span>
+                                  </h4>
+                                  <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                                    <span className="flex items-center gap-1"><Target size={12} /> {ex.points} คะแนน</span>
+                                    {ex.dataset_name && (
+                                      <span className="flex items-center gap-1"><Database size={12} /> ข้อมูล: {ex.dataset_name}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => openExerciseForm(ex)}
+                                  className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
+                                  title="แก้ไข"
+                                >
+                                  <Edit3 size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExercise(ex.exercise_id)}
+                                  className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+                                  title="ลบ"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {activeAssignTab === "progress" && (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-700">Student Progress</h3>
+                        <div className="text-sm text-gray-500">
+                          มีผู้ส่งงาน {studentProgress.filter(p => p.completed_exercises > 0).length} / {studentProgress.length} คน
+                        </div>
+                      </div>
+
+                      {loadingProgress ? (
+                        <div className="flex justify-center items-center py-10 gap-2 text-teal-600">
+                          <Loader2 size={24} className="animate-spin" />
+                          <span>กำลังดึงข้อมูลคะแนน...</span>
+                        </div>
+                      ) : studentProgress.length === 0 ? (
+                        <div className="text-center py-10 text-gray-500 bg-gray-50 rounded-lg">
+                          ไม่พบข้อมูลนักศึกษา โปรดเพิ่มนักศึกษาเข้าสู่ระบบ หรือยังไม่มีนักศึกษาในระบบ
+                        </div>
+                      ) : (
+                        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                          <table className="w-full">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-12">No.</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">รหัสนักศึกษา</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">ชื่อ-สกุล</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">โจทย์ที่เสร็จแล้ว</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">คะแนนรวม</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">ความคืบหน้า</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {studentProgress.map((student, idx) => {
+                                const percentComplete = student.total_exercises > 0 
+                                  ? Math.round((student.completed_exercises / student.total_exercises) * 100) 
+                                  : 0;
+                                  
+                                return (
+                                  <tr key={student.student_id || idx} className="hover:bg-gray-50 transition">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{idx + 1}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">{student.student_id || "-"}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.student_name || student.email}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <BookOpen size={14} className={student.completed_exercises === student.total_exercises ? "text-green-500" : "text-gray-400"} />
+                                        <span className={student.completed_exercises === student.total_exercises ? "font-bold text-green-700" : "text-gray-700"}>
+                                          {student.completed_exercises}
+                                        </span>
+                                        <span className="text-gray-400">/ {student.total_exercises}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className={`font-semibold ${student.user_score >= student.max_score ? 'text-green-600' : 'text-teal-700'}`}>
+                                        {student.user_score}
+                                      </span>
+                                      <span className="text-gray-400 text-xs ml-1">/ {student.max_score}</span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-full bg-gray-200 rounded-full h-2 min-w-[60px]">
+                                          <div 
+                                            className={`h-2 rounded-full ${percentComplete === 100 ? 'bg-green-500' : 'bg-teal-500'}`}
+                                            style={{ width: `${percentComplete}%` }}
+                                          ></div>
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-600">{percentComplete}%</span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -1319,8 +1452,88 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                   value={exerciseForm.hint}
                   onChange={(e) => setExerciseForm({ ...exerciseForm, hint: e.target.value })}
                   rows={2}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                 />
+              </div>
+
+              {/* Required Keywords Section */}
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <label className="block text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
+                  <Key size={14} />
+                  เงื่อนไข SQL Keywords (ไม่บังคับ)
+                </label>
+                <p className="text-xs text-amber-700 mb-3">
+                  กำหนดคำสั่ง SQL ที่นักศึกษาต้องใช้ในคำตอบ ถ้าคำตอบถูกแต่ไม่มีคำสั่งที่กำหนดจะไม่ได้คะแนน
+                </p>
+
+                {/* Tags Display */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {(exerciseForm.required_keywords || []).map((kw, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-md text-xs font-semibold border border-amber-300"
+                    >
+                      {kw}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = exerciseForm.required_keywords.filter((_, i) => i !== idx);
+                          setExerciseForm({ ...exerciseForm, required_keywords: updated });
+                        }}
+                        className="hover:bg-amber-200 rounded-full p-0.5 transition"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                  {(exerciseForm.required_keywords || []).length === 0 && (
+                    <span className="text-xs text-amber-600 italic">ยังไม่ได้กำหนดเงื่อนไข — นักศึกษาเขียนอย่างไรก็ได้ขอแค่คำตอบถูก</span>
+                  )}
+                </div>
+
+                {/* Input */}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    placeholder="พิมพ์ keyword แล้วกด Enter เช่น WHERE"
+                    className="flex-1 border border-amber-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-amber-400 outline-none bg-white"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const val = e.target.value.trim().toUpperCase();
+                        if (val && !(exerciseForm.required_keywords || []).includes(val)) {
+                          setExerciseForm({
+                            ...exerciseForm,
+                            required_keywords: [...(exerciseForm.required_keywords || []), val]
+                          });
+                          e.target.value = "";
+                        }
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Preset Suggestions */}
+                <div className="flex flex-wrap gap-1">
+                  {["WHERE", "AND", "OR", "JOIN", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "GROUP BY", "HAVING", "ORDER BY", "DISTINCT", "LIKE", "IN", "BETWEEN", "EXISTS", "UNION", "SUBQUERY", "COUNT", "SUM", "AVG", "MAX", "MIN"].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      disabled={(exerciseForm.required_keywords || []).includes(preset)}
+                      onClick={() => {
+                        if (!(exerciseForm.required_keywords || []).includes(preset)) {
+                          setExerciseForm({
+                            ...exerciseForm,
+                            required_keywords: [...(exerciseForm.required_keywords || []), preset]
+                          });
+                        }
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-amber-200 text-amber-700 rounded hover:bg-amber-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex items-center">
@@ -1329,7 +1542,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                     type="checkbox"
                     checked={exerciseForm.show_solution}
                     onChange={(e) => setExerciseForm({ ...exerciseForm, show_solution: e.target.checked })}
-                    className="w-4 h-4 text-indigo-600 rounded"
+                    className="w-4 h-4 text-teal-600 rounded"
                   />
                   <span className="text-sm text-gray-700">แสดงเฉลยหลังส่งคำตอบ</span>
                 </label>

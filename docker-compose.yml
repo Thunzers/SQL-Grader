@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    container_name: sql_grader_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tonkla2010  
+      POSTGRES_DB: Grader_SQL
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  
+volumes:
+  postgres_data:
