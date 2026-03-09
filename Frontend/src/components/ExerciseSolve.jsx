@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Play, Send, AlertCircle, ChevronUp, ChevronDown, Database, Lightbulb, FileText, CheckCircle2, XCircle, Loader2, Terminal, GripVertical } from "lucide-react";
+import { ArrowLeft, Play, Send, AlertCircle, ChevronUp, ChevronDown, Database, Lightbulb, FileText, CheckCircle2, XCircle, Loader2, Terminal, GripVertical, AlertTriangle } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import MonacoSQLEditor from "./MonacoSQLEditor";
 import SubmitResultModal from "./SubmitResultModal";
@@ -27,6 +27,10 @@ export default function ExerciseSolve() {
   const [outputHeight, setOutputHeight] = useState(250);
   const [leftWidth, setLeftWidth] = useState(420);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Due date expiry
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const dueTimerRef = useRef(null);
 
   // Fetch Exercise Detail
   useEffect(() => {
@@ -58,6 +62,27 @@ export default function ExerciseSolve() {
         setError("Failed to load exercise: " + err.message);
       });
   }, [exerciseId]);
+
+  // Real-time due_date check — auto-redirect when expired
+  useEffect(() => {
+    if (!exercise?.assignment_due_date) return;
+
+    const checkDue = () => {
+      const now = new Date();
+      const due = new Date(exercise.assignment_due_date);
+      if (now > due) {
+        setShowExpiredModal(true);
+        if (dueTimerRef.current) clearInterval(dueTimerRef.current);
+      }
+    };
+
+    checkDue();
+    dueTimerRef.current = setInterval(checkDue, 1000);
+
+    return () => {
+      if (dueTimerRef.current) clearInterval(dueTimerRef.current);
+    };
+  }, [exercise]);
 
   // Keyboard shortcut: Ctrl+Enter to Run
   useEffect(() => {
@@ -136,10 +161,11 @@ export default function ExerciseSolve() {
     setOutputTab("output");
 
     try {
+      const studentId = localStorage.getItem("student_id");
       const response = await fetch(`http://localhost:5000/api/exercises/${exerciseId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, student_id: studentId }),
       });
 
       const data = await response.json();
@@ -155,6 +181,40 @@ export default function ExerciseSolve() {
     } finally {
       setIsRunning(false);
     }
+  };
+
+  const handleReset = async () => {
+    setConfirmModal({
+      title: "ยืนยันการเริ่มใหม่",
+      message: "ระบบจะล้างตารางและข้อมูลที่คุณเคยสร้างไว้ทั้งหมด กลับไปเป็นเหมือนตอนเริ่มแรก คุณแน่ใจหรือไม่?",
+      type: "warning",
+      confirmText: "เริ่มใหม่ (Reset)",
+      cancelText: "ยกเลิก",
+      onConfirm: async () => {
+        const studentId = localStorage.getItem("student_id");
+        setError(null);
+        setResults(null);
+        setTestResults(null);
+        
+        try {
+          const response = await fetch(`http://localhost:5000/api/exercises/${exerciseId}/reset`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ student_id: studentId }),
+          });
+          
+          if (!response.ok) {
+            const data = await response.json();
+            setError(data.error || "Failed to reset sandbox");
+          } else {
+            // Optional: Show a brief success message
+            setOutputOpen(false);
+          }
+        } catch (err) {
+          setError("Network error: " + err.message);
+        }
+      }
+    });
   };
 
   const handleSubmit = async () => {
@@ -401,6 +461,14 @@ export default function ExerciseSolve() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleReset}
+                disabled={isRunning || isSubmitting}
+                className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-red-200 active:scale-95"
+              >
+                <AlertCircle size={14} />
+                เริ่มใหม่
+              </button>
               <button
                 onClick={handleRun}
                 disabled={isRunning}
@@ -680,6 +748,25 @@ export default function ExerciseSolve() {
         config={confirmModal}
         onClose={() => setConfirmModal(null)}
       />
+
+      {/* Expired Modal */}
+      {showExpiredModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md mx-4 text-center">
+            <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-800 mb-2">⏰ หมดเวลาแล้ว</h2>
+            <p className="text-gray-600 mb-6">
+              Assignment นี้หมดเวลาส่งแล้ว ไม่สามารถทำหรือส่งคำตอบได้อีก
+            </p>
+            <button
+              onClick={() => navigate(-1)}
+              className="px-6 py-2.5 bg-[#00796b] text-white rounded-lg hover:bg-[#00695c] transition font-semibold"
+            >
+              กลับไปหน้า Assignment
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

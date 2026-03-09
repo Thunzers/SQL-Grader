@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ArrowLeft, Clock, BookOpen, Target } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowLeft, Clock, BookOpen, Target, AlertTriangle } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 
 export default function AssignmentDetail() {
@@ -8,6 +8,8 @@ export default function AssignmentDetail() {
   const [assignment, setAssignment] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPastDue, setIsPastDue] = useState(false);
+  const timerRef = useRef(null);
 
   // Get student ID from session
   const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
@@ -39,6 +41,27 @@ export default function AssignmentDetail() {
         setIsLoading(false);
       });
   }, [assignmentId]);
+
+  // Real-time due_date check (every second)
+  useEffect(() => {
+    if (!assignment?.due_date) return;
+
+    const checkDue = () => {
+      const now = new Date();
+      const due = new Date(assignment.due_date);
+      if (now > due) {
+        setIsPastDue(true);
+        if (timerRef.current) clearInterval(timerRef.current);
+      }
+    };
+
+    checkDue(); // check immediately
+    timerRef.current = setInterval(checkDue, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [assignment]);
 
   const handleSelectExercise = (exerciseId) => {
     navigate(`/exercise/${exerciseId}`);
@@ -131,6 +154,16 @@ export default function AssignmentDetail() {
         </div>
       </div>
 
+      {/* PAST DUE BANNER */}
+      {isPastDue && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-3">
+          <div className="max-w-6xl mx-auto flex items-center gap-3 text-red-700">
+            <AlertTriangle size={20} />
+            <span className="font-semibold">⏰ หมดเวลาแล้ว — ไม่สามารถเข้าทำโจทย์ในชุดนี้ได้อีก</span>
+          </div>
+        </div>
+      )}
+
       {/* EXERCISES TABLE */}
       <div className="max-w-6xl mx-auto px-6 py-8">
         <h2 className="text-xl font-semibold mb-4">Exercises</h2>
@@ -214,10 +247,15 @@ export default function AssignmentDetail() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => handleSelectExercise(exercise.exercise_id)}
-                        className="px-4 py-2 bg-[#00796b] text-white text-sm rounded-lg hover:bg-[#00695c] transition"
+                        onClick={() => !isPastDue && handleSelectExercise(exercise.exercise_id)}
+                        disabled={isPastDue}
+                        className={`px-4 py-2 text-sm rounded-lg transition ${
+                          isPastDue
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            : "bg-[#00796b] text-white hover:bg-[#00695c]"
+                        }`}
                       >
-                        {exercise.status === "completed" ? "Review" : "Solve"}
+                        {isPastDue ? "ปิดแล้ว" : exercise.status === "completed" ? "Review" : "Solve"}
                       </button>
                     </td>
                   </tr>

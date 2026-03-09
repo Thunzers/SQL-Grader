@@ -1287,76 +1287,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  คำตอบ SQL ที่ถูกต้อง <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={exerciseForm.expected_query}
-                  onChange={(e) => setExerciseForm({ ...exerciseForm, expected_query: e.target.value })}
-                  rows={4}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
-                  required
-                />
-                {/* Test SQL Button */}
-                <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={handleTestSQL}
-                    disabled={testingSQL || !exerciseForm.expected_query}
-                    className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm transition disabled:bg-teal-300"
-                  >
-                    {testingSQL ? <Loader2 size={16} className="animate-spin" /> : ""}
-                    {testingSQL ? "กำลังทดสอบ..." : "ทดสอบ SQL"}
-                  </button>
-                </div>
-
-                {/* SQL Test Result */}
-                {sqlTestResult && (
-                  <div className={`mt-3 p-3 rounded-lg border ${sqlTestResult.success ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      {sqlTestResult.success ? (
-                        <CheckCircle size={18} className="text-green-600" />
-                      ) : (
-                        <XCircle size={18} className="text-red-600" />
-                      )}
-                      <span className={`font-semibold ${sqlTestResult.success ? "text-green-700" : "text-red-700"}`}>
-                        {sqlTestResult.success ? "รันสำเร็จ" : "เกิดข้อผิดพลาด"}
-                      </span>
-                    </div>
-                    {sqlTestResult.success ? (
-                      <div className="overflow-x-auto">
-                        <p className="text-sm text-gray-600 mb-1">ผลลัพธ์ ({sqlTestResult.row_count} แถว):</p>
-                        <table className="min-w-full text-xs border border-gray-300">
-                          <thead className="bg-gray-100">
-                            <tr>
-                              {sqlTestResult.columns?.map((col, i) => (
-                                <th key={i} className="px-2 py-1 border-b border-gray-300 text-left">{col}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sqlTestResult.rows?.slice(0, 10).map((row, i) => (
-                              <tr key={i} className="hover:bg-gray-50">
-                                {sqlTestResult.columns?.map((col, j) => (
-                                  <td key={j} className="px-2 py-1 border-b border-gray-200">{String(row[col] ?? "NULL")}</td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {sqlTestResult.row_count > 10 && (
-                          <p className="text-xs text-gray-500 mt-1">แสดง 10 แถวแรกจากทั้งหมด {sqlTestResult.row_count} แถว</p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-red-600">{sqlTestResult.error}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Test Cases Section */}
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              {/* Test Cases Section */}
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="font-semibold text-gray-700 flex items-center gap-1">
                       <CheckCircle size={16} /> Test Cases ({testCases.length})
@@ -1409,7 +1341,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                     </div>
                   )}
                 </div>
-              </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -1446,7 +1377,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                 </div>
               </div>
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">คำใบ้ (Hint)</label>
                 <textarea
                   value={exerciseForm.hint}
@@ -1454,13 +1385,13 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                   rows={2}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                 />
-              </div>
+              </div> */}
 
               {/* Required Keywords Section */}
               <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                 <label className="block text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
                   <Key size={14} />
-                  เงื่อนไข SQL Keywords (ไม่บังคับ)
+                  SQL Keywords 
                 </label>
                 <p className="text-xs text-amber-700 mb-3">
                   กำหนดคำสั่ง SQL ที่นักศึกษาต้องใช้ในคำตอบ ถ้าคำตอบถูกแต่ไม่มีคำสั่งที่กำหนดจะไม่ได้คะแนน
@@ -1486,16 +1417,14 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                       </button>
                     </span>
                   ))}
-                  {(exerciseForm.required_keywords || []).length === 0 && (
-                    <span className="text-xs text-amber-600 italic">ยังไม่ได้กำหนดเงื่อนไข — นักศึกษาเขียนอย่างไรก็ได้ขอแค่คำตอบถูก</span>
-                  )}
+                
                 </div>
 
                 {/* Input */}
                 <div className="flex gap-2 mb-3">
                   <input
                     type="text"
-                    placeholder="พิมพ์ keyword แล้วกด Enter เช่น WHERE"
+                    placeholder="พิมพ์ keyword แล้วกด Enter"
                     className="flex-1 border border-amber-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-amber-400 outline-none bg-white"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {

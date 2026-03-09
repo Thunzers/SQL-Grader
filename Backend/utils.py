@@ -60,11 +60,17 @@ def run_sql_on_sandbox(schema_sql: str, seed_sql: str, query: str):
         # Run the query
         sandbox_cur.execute(query)
 
-        # Get column names
-        columns = [desc[0] for desc in sandbox_cur.description] if sandbox_cur.description else []
-
-        # Get rows
-        rows = sandbox_cur.fetchall()
+        # Check if the query returns data (e.g., SELECT) or not (e.g., CREATE, INSERT)
+        if sandbox_cur.description:
+            # Get column names
+            columns = [desc[0] for desc in sandbox_cur.description]
+            
+            # Get rows
+            rows = sandbox_cur.fetchall()
+        else:
+            # Query like CREATE TABLE or INSERT that doesn't return rows
+            columns = ["Message"]
+            rows = [("Executed successfully.",)]
 
         # Convert to serializable format (simple version)
         serialized_rows = []
@@ -115,6 +121,114 @@ def run_sql_on_sandbox(schema_sql: str, seed_sql: str, query: str):
             print(f"Error cleaning up sandbox: {cleanup_error}")
 
     return result
+
+def execute_query_on_persistent_sandbox(sandbox_name: str, schema_sql: str, seed_sql: str, query: str):
+    """
+    Run SQL query on a persistent sandbox. 
+    Creates the database and runs seed data ONLY if it doesn't already exist.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "Database connection failed"}
+
+    db_created = False
+    try:
+        conn.autocommit = True
+        cur = conn.cursor()
+
+        # Check if database exists
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (sandbox_name,))
+        exists = cur.fetchone()
+
+        if not exists:
+            # Create sandbox database
+            cur.execute(f'CREATE DATABASE "{sandbox_name}"')
+            db_created = True
+
+        cur.close()
+        conn.close()
+
+        # Connect to sandbox
+        sandbox_conn = psycopg2.connect(
+            host=DB_HOST, database=sandbox_name, user=DB_USER, password=DB_PASS, port=DB_PORT
+        )
+        sandbox_cur = sandbox_conn.cursor()
+
+        # Only run schema and seed if we just created the DB
+        if db_created:
+            if schema_sql:
+                sandbox_cur.execute(schema_sql)
+                sandbox_conn.commit()
+
+            if seed_sql:
+                sandbox_cur.execute(seed_sql)
+                sandbox_conn.commit()
+
+        # Run the query
+        sandbox_cur.execute(query)
+        sandbox_conn.commit()
+
+        # Check if the query returns data (e.g., SELECT) or not (e.g., CREATE, INSERT)
+        if sandbox_cur.description:
+            columns = [desc[0] for desc in sandbox_cur.description]
+            rows = sandbox_cur.fetchall()
+        else:
+            columns = ["Message"]
+            rows = [("Executed successfully.",)]
+
+        # Convert to serializable format
+        serialized_rows = []
+        for row in rows:
+            serialized_row = []
+            for val in row:
+                if isinstance(val, (datetime, date, time)):
+                    serialized_row.append(val.isoformat())
+                elif isinstance(val, Decimal):
+                    serialized_row.append(float(val))
+                else:
+                    serialized_row.append(val)
+            serialized_rows.append(serialized_row)
+
+        result = {
+            "columns": columns,
+            "rows": serialized_rows,
+            "row_count": len(rows)
+        }
+
+        sandbox_cur.close()
+        sandbox_conn.close()
+
+    except Exception as e:
+        result = {"error": str(e)}
+
+    return result
+
+def drop_persistent_sandbox(sandbox_name: str):
+    """
+    Drops a persistent sandbox database.
+    """
+    try:
+        cleanup_conn = psycopg2.connect(
+            host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS, port=DB_PORT
+        )
+        cleanup_conn.autocommit = True
+        cleanup_cur = cleanup_conn.cursor()
+
+        # Terminate connections to sandbox
+        cleanup_cur.execute(f"""
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE datname = '{sandbox_name}'
+        """)
+
+        # Drop sandbox
+        cleanup_cur.execute(f'DROP DATABASE IF EXISTS "{sandbox_name}"')
+        cleanup_cur.close()
+        cleanup_conn.close()
+        return True
+    except Exception as cleanup_error:
+        print(f"Error cleaning up sandbox {sandbox_name}: {cleanup_error}")
+        return False
 
 import re
 

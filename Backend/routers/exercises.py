@@ -4,6 +4,7 @@ from psycopg2.extras import RealDictCursor
 from database import get_db_connection
 from utils import serialize_row, run_sql_on_sandbox, evaluate_test_cases
 import json
+from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -64,9 +65,11 @@ def get_exercise(exercise_id: int):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
-            SELECT e.*, d.name as dataset_name, d.schema_sql, d.seed_data_sql
+            SELECT e.*, d.name as dataset_name, d.schema_sql, d.seed_data_sql,
+                   a.due_date as assignment_due_date, a.assign_id
             FROM exercises e
             LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+            LEFT JOIN assignments a ON e.assign_id = a.assign_id
             WHERE e.exercise_id = %s
         """, (exercise_id,))
         exercise = cur.fetchone()
@@ -99,8 +102,8 @@ async def create_exercise(assign_id: int, request: Request):
     show_solution = data.get("show_solution", False)
     required_keywords = data.get("required_keywords", [])
 
-    if not all([title, description, expected_query]):
-        return JSONResponse({"error": "Required fields: title, description, expected_query"}, status_code=400)
+    if not all([title, description]):
+        return JSONResponse({"error": "Required fields: title, description"}, status_code=400)
 
     if difficulty not in ["easy", "medium", "hard"]:
         return JSONResponse({"error": "difficulty must be: easy, medium, or hard"}, status_code=400)
@@ -523,8 +526,11 @@ async def run_exercise_test(exercise_id: int, request: Request):
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
     query = data.get("query")
+    student_id = data.get("student_id")
     if not query:
         return JSONResponse({"error": "query is required"}, status_code=400)
+    if not student_id:
+        return JSONResponse({"error": "student_id is required"}, status_code=400)
 
     conn = get_db_connection()
     if not conn:
@@ -533,11 +539,12 @@ async def run_exercise_test(exercise_id: int, request: Request):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Get exercise with dataset
+        # Get exercise with dataset and assignment due_date
         cur.execute("""
-            SELECT e.*, d.schema_sql, d.seed_data_sql
+            SELECT e.*, d.schema_sql, d.seed_data_sql, a.due_date as assignment_due_date
             FROM exercises e
             LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+            LEFT JOIN assignments a ON e.assign_id = a.assign_id
             WHERE e.exercise_id = %s
         """, (exercise_id,))
         exercise = cur.fetchone()
@@ -546,6 +553,13 @@ async def run_exercise_test(exercise_id: int, request: Request):
             cur.close()
             conn.close()
             return JSONResponse({"error": "Exercise not found"}, status_code=404)
+
+        # Check due_date
+        due_date = exercise.get("assignment_due_date")
+        if due_date and datetime.now(timezone.utc) > due_date.replace(tzinfo=timezone.utc):
+            cur.close()
+            conn.close()
+            return JSONResponse({"error": "Assignment has expired. \u0e2b\u0e21\u0e14\u0e40\u0e27\u0e25\u0e32\u0e41\u0e25\u0e49\u0e27"}, status_code=403)
 
         # Get test cases
         cur.execute("""
@@ -561,8 +575,12 @@ async def run_exercise_test(exercise_id: int, request: Request):
         schema_sql = exercise.get("schema_sql") or ""
         seed_sql = exercise.get("seed_data_sql") or ""
 
+        # Use persistent sandbox named after student and exercise
+        sandbox_name = f"sandbox_stu{student_id}_ex{exercise_id}"
+
         # Run student's query
-        student_result = run_sql_on_sandbox(schema_sql, seed_sql, query)
+        from utils import execute_query_on_persistent_sandbox
+        student_result = execute_query_on_persistent_sandbox(sandbox_name, schema_sql, seed_sql, query)
 
         if "error" in student_result:
             return JSONResponse({"success": False, "error": student_result["error"]}, status_code=400)
@@ -691,11 +709,12 @@ async def submit_exercise(exercise_id: int, request: Request):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Get exercise with dataset and test cases
+        # Get exercise with dataset and assignment due_date
         cur.execute("""
-            SELECT e.*, d.schema_sql, d.seed_data_sql
+            SELECT e.*, d.schema_sql, d.seed_data_sql, a.due_date as assignment_due_date
             FROM exercises e
             LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+            LEFT JOIN assignments a ON e.assign_id = a.assign_id
             WHERE e.exercise_id = %s
         """, (exercise_id,))
         exercise = cur.fetchone()
@@ -704,6 +723,13 @@ async def submit_exercise(exercise_id: int, request: Request):
             cur.close()
             conn.close()
             return JSONResponse({"error": "Exercise not found"}, status_code=404)
+
+        # Check due_date
+        due_date = exercise.get("assignment_due_date")
+        if due_date and datetime.now(timezone.utc) > due_date.replace(tzinfo=timezone.utc):
+            cur.close()
+            conn.close()
+            return JSONResponse({"error": "Assignment has expired. \u0e2b\u0e21\u0e14\u0e40\u0e27\u0e25\u0e32\u0e41\u0e25\u0e49\u0e27"}, status_code=403)
 
         # Get test cases
         cur.execute("""
@@ -721,8 +747,13 @@ async def submit_exercise(exercise_id: int, request: Request):
         schema_sql = exercise.get("schema_sql") or ""
         seed_sql = exercise.get("seed_data_sql") or ""
 
-        # Run student's query
-        student_result = run_sql_on_sandbox(schema_sql, seed_sql, query)
+        # Run student's query on persistent sandbox
+        sandbox_name = f"sandbox_stu{student_id}_ex{exercise_id}"
+        from utils import execute_query_on_persistent_sandbox, drop_persistent_sandbox
+        student_result = execute_query_on_persistent_sandbox(sandbox_name, schema_sql, seed_sql, query)
+
+        # We must drop the persistent sandbox after a submission run, regardless of success or failure
+        drop_persistent_sandbox(sandbox_name)
 
         if "error" in student_result:
             # Save failed submission
@@ -801,3 +832,24 @@ async def submit_exercise(exercise_id: int, request: Request):
         except Exception:
             pass
         return JSONResponse({"error": str(e)}, status_code=500)
+
+# Reset Sandbox
+@router.post("/api/exercises/{exercise_id}/reset")
+async def reset_exercise_sandbox(exercise_id: int, request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    student_id = data.get("student_id")
+    if not student_id:
+        return JSONResponse({"error": "student_id is required"}, status_code=400)
+
+    sandbox_name = f"sandbox_stu{student_id}_ex{exercise_id}"
+    from utils import drop_persistent_sandbox
+    
+    success = drop_persistent_sandbox(sandbox_name)
+    if success:
+        return JSONResponse({"success": True, "message": "Sandbox reset successfully"}, status_code=200)
+    else:
+        return JSONResponse({"success": False, "error": "Failed to reset sandbox"}, status_code=500)
