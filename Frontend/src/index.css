@@ -23,6 +23,20 @@ body {
   animation: slide-in 0.3s ease-out;
 }
 
+/* Problem List Sidebar animation */
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.25s ease-out;
+}
+
 /* ConfirmModal animation */
 @keyframes scale-in {
   from {

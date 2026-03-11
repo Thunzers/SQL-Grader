@@ -9,13 +9,18 @@ from utils import serialize_row
 router = APIRouter()
 
 @router.get("/api/users")
-def get_users():
+def get_users(role: str = None):
     conn = get_db_connection()
     if not conn:
         return JSONResponse({"error": "Database error"}, status_code=500)
 
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT student_id, name, surname, email, role FROM users ORDER BY student_id ASC;")
+    
+    if role:
+        cur.execute("SELECT student_id, name, surname, email, role FROM users WHERE role = %s ORDER BY student_id ASC;", (role,))
+    else:
+        cur.execute("SELECT student_id, name, surname, email, role FROM users ORDER BY student_id ASC;")
+        
     users = cur.fetchall()
     cur.close()
     conn.close()
@@ -159,7 +164,7 @@ async def add_single_user(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.post("/api/users/bulk-upload")
-async def bulk_upload_users(file: UploadFile = File(...)):
+async def bulk_upload_users(file: UploadFile = File(...), force_student: bool = False):
     # Validate file type
     if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
         return JSONResponse({"error": "File must be an Excel file (.xlsx, .xls) or CSV (.csv)"}, status_code=400)
@@ -187,8 +192,10 @@ async def bulk_upload_users(file: UploadFile = File(...)):
         df['surname'] = df['surname'].astype(str).str.strip()
         df['email'] = df['email'].astype(str).str.strip().str.lower()
 
-        # Set default role if not provided
-        if 'role' not in df.columns:
+        # Set default role if not provided or force_student is true
+        if force_student:
+            df['role'] = 'student'
+        elif 'role' not in df.columns:
             df['role'] = 'student'
         else:
             df['role'] = df['role'].fillna('student').astype(str).str.strip().str.lower()

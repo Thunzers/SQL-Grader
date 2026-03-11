@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Upload, X } from "lucide-react";
 
-export default function BulkUploadModal({ isOpen, onClose, onUploadComplete }) {
+export default function BulkUploadModal({ isOpen, onClose, onUploadComplete, mode = "admin" }) {
     const [uploadFile, setUploadFile] = useState(null);
     const [uploadResult, setUploadResult] = useState(null);
     const [uploading, setUploading] = useState(false);
@@ -22,7 +22,11 @@ export default function BulkUploadModal({ isOpen, onClose, onUploadComplete }) {
             const formData = new FormData();
             formData.append('file', uploadFile);
 
-            const response = await fetch('http://localhost:5000/api/users/bulk-upload', {
+            const endpoint = mode === 'teacher' 
+                ? 'http://localhost:5000/api/users/bulk-upload?force_student=true' 
+                : 'http://localhost:5000/api/users/bulk-upload';
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 body: formData,
             });
@@ -73,8 +77,14 @@ export default function BulkUploadModal({ isOpen, onClose, onUploadComplete }) {
                         <h3 className="font-semibold text-blue-900 mb-2">คำแนะนำ:</h3>
                         <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
                             <li>ไฟล์ Excel/CSV ต้องมีคอลัมน์ <strong>student_id, name, surname, email</strong> (จำเป็น)</li>
-                            <li>คอลัมน์ <strong>role</strong> (ไม่บังคับ) - ถ้าไม่ระบุจะเป็น student</li>
-                            <li>Role ที่ใช้ได้: student, teacher, admin</li>
+                            {mode === 'admin' ? (
+                                <>
+                                    <li>คอลัมน์ <strong>role</strong> (ไม่บังคับ) - ถ้าไม่ระบุจะเป็น student</li>
+                                    <li>Role ที่ใช้ได้: student, teacher, admin</li>
+                                </>
+                            ) : (
+                                <li><strong>หมายเหตุ:</strong> ทุกบัญชีที่เพิ่มจะถูกกำหนดให้เป็น <strong>Student</strong> ทันที</li>
+                            )}
                             <li>รหัสนักศึกษาหรืออีเมลที่มีอยู่แล้วในระบบจะถูกข้าม</li>
                         </ul>
                     </div>

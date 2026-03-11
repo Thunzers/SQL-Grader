@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Play, Send, AlertCircle, ChevronUp, ChevronDown, Database, Lightbulb, FileText, CheckCircle2, XCircle, Loader2, Terminal, GripVertical, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Play, Send, AlertCircle, ChevronUp, ChevronDown, Database, Lightbulb, FileText, CheckCircle2, XCircle, Loader2, Terminal, GripVertical, AlertTriangle, List } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import MonacoSQLEditor from "./MonacoSQLEditor";
 import SubmitResultModal from "./SubmitResultModal";
@@ -32,6 +32,14 @@ export default function ExerciseSolve() {
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const dueTimerRef = useRef(null);
 
+  // Problem List Sidebar
+  const [showProblemList, setShowProblemList] = useState(false);
+  const [assignmentExercises, setAssignmentExercises] = useState([]);
+  const [loadingList, setLoadingList] = useState(false);
+
+  const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
+  const studentId = sessionData.studentId;
+
   // Fetch Exercise Detail
   useEffect(() => {
     if (!exerciseId) return;
@@ -62,6 +70,27 @@ export default function ExerciseSolve() {
         setError("Failed to load exercise: " + err.message);
       });
   }, [exerciseId]);
+
+  // Fetch Assignment Exercises for Sidebar
+  useEffect(() => {
+    if (!exercise?.assign_id) return;
+    
+    setLoadingList(true);
+    const url = studentId 
+      ? `http://localhost:5000/api/assignments/${exercise.assign_id}/exercises?student_id=${studentId}`
+      : `http://localhost:5000/api/assignments/${exercise.assign_id}/exercises`;
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        setAssignmentExercises(data);
+        setLoadingList(false);
+      })
+      .catch(err => {
+        console.error("Error fetching assignment exercises:", err);
+        setLoadingList(false);
+      });
+  }, [exercise?.assign_id, studentId]);
 
   // Real-time due_date check — auto-redirect when expired
   useEffect(() => {
@@ -300,9 +329,22 @@ export default function ExerciseSolve() {
             className="flex items-center gap-1.5 text-white/80 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/10 transition-all text-sm"
           >
             <ArrowLeft size={16} />
-            <span className="hidden sm:inline">Back</span>
           </button>
-          <div className="w-px h-5 bg-white/20"></div>
+          
+          <button
+            onClick={() => setShowProblemList(true)}
+            className="flex items-center gap-2 text-white/80 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all text-sm font-medium"
+          >
+            <List size={16} />
+            <span className="hidden sm:inline">Problem List</span>
+            {assignmentExercises.length > 0 && (
+              <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">
+                {assignmentExercises.filter(e => e.status === 'completed').length}/{assignmentExercises.length} Solved
+              </span>
+            )}
+          </button>
+
+          <div className="w-px h-5 bg-white/20 mx-1"></div>
           <h1 className="text-sm font-semibold truncate max-w-xs">{exercise.title}</h1>
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-white/20 text-white border border-white/30`}>
             {exercise.difficulty}
@@ -736,6 +778,122 @@ export default function ExerciseSolve() {
         </div>
       </div>
 
+      {/* === PROBLEM LIST SIDEBAR === */}
+      {showProblemList && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Overlay */}
+          <div 
+            className="absolute inset-0 bg-black/40 transition-opacity"
+            onClick={() => setShowProblemList(false)}
+          />
+          
+          {/* Sidebar Panel */}
+          <div className="relative w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col h-full animate-slide-in-left">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-[#00796b] text-white flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <List size={18} />
+                <h2 className="font-semibold text-sm">Problem List</h2>
+                {assignmentExercises.length > 0 && (
+                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">
+                    {assignmentExercises.filter(e => e.status === 'completed').length}/{assignmentExercises.length}
+                  </span>
+                )}
+              </div>
+              <button 
+                onClick={() => setShowProblemList(false)}
+                className="p-1 hover:bg-white/20 rounded-lg transition"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            {/* Exercise List */}
+            <div className="flex-1 overflow-y-auto">
+              {loadingList ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={24} className="animate-spin text-teal-600" />
+                </div>
+              ) : assignmentExercises.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm">
+                  No exercises found
+                </div>
+              ) : (
+                <div className="py-1">
+                  {assignmentExercises.map((ex, index) => {
+                    const isActive = String(ex.exercise_id) === String(exerciseId);
+                    const isCompleted = ex.status === 'completed';
+                    const isAttempted = ex.status === 'attempted';
+                    const diffConfig = {
+                      easy: 'text-emerald-600',
+                      medium: 'text-amber-600',
+                      hard: 'text-rose-600',
+                    };
+                    const diffColor = diffConfig[(ex.difficulty || 'easy').toLowerCase()] || diffConfig.easy;
+
+                    return (
+                      <button
+                        key={ex.exercise_id}
+                        onClick={() => {
+                          setShowProblemList(false);
+                          if (!isActive) {
+                            navigate(`/exercise/${ex.exercise_id}`);
+                          }
+                        }}
+                        className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-all border-l-[3px] ${
+                          isActive
+                            ? 'bg-teal-50 border-teal-600'
+                            : 'border-transparent hover:bg-gray-50'
+                        }`}
+                      >
+                        {/* Status Icon */}
+                        <div className="flex-shrink-0">
+                          {isCompleted ? (
+                            <CheckCircle2 size={18} className="text-emerald-500" />
+                          ) : isAttempted ? (
+                            <AlertCircle size={18} className="text-amber-500" />
+                          ) : (
+                            <div className="w-[18px] h-[18px] rounded-full border-2 border-gray-300" />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400 font-mono">{index + 1}.</span>
+                            <span className={`text-sm font-medium truncate ${isActive ? 'text-teal-800' : 'text-gray-800'}`}>
+                              {ex.title}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[10px] font-bold uppercase ${diffColor}`}>
+                              {ex.difficulty || 'Easy'}
+                            </span>
+                            <span className="text-[10px] text-gray-400">•</span>
+                            <span className="text-[10px] text-gray-400">{ex.points} pts</span>
+                            {ex.user_score > 0 && (
+                              <>
+                                <span className="text-[10px] text-gray-400">•</span>
+                                <span className="text-[10px] font-semibold text-teal-600">{ex.user_score}/{ex.points}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Active arrow */}
+                        {isActive && (
+                          <span className="text-teal-600 text-xs font-bold">▸</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Submit Result Modal */}
       <SubmitResultModal
         isOpen={showResultModal}
@@ -754,7 +912,7 @@ export default function ExerciseSolve() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]">
           <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md mx-4 text-center">
             <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-800 mb-2">⏰ หมดเวลาแล้ว</h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">!!! หมดเวลาแล้ว !!!</h2>
             <p className="text-gray-600 mb-6">
               Assignment นี้หมดเวลาส่งแล้ว ไม่สามารถทำหรือส่งคำตอบได้อีก
             </p>

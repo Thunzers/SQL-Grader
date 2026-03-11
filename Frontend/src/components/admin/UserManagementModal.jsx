@@ -4,7 +4,7 @@ import AddUserModal from "./AddUserModal";
 import BulkUploadModal from "./BulkUploadModal";
 import ConfirmModal from "../ConfirmModal";
 
-export default function UserManagementModal({ isOpen, onClose }) {
+export default function UserManagementModal({ isOpen, onClose, mode = "admin" }) {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -20,7 +20,8 @@ export default function UserManagementModal({ isOpen, onClose }) {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:5000/api/users');
+            const endpoint = mode === 'teacher' ? 'http://localhost:5000/api/users?role=student' : 'http://localhost:5000/api/users';
+            const response = await fetch(endpoint);
             const data = await response.json();
             const usersData = Array.isArray(data)
                 ? data.slice().sort((a, b) => Number(a.id) - Number(b.id))
@@ -102,7 +103,7 @@ export default function UserManagementModal({ isOpen, onClose }) {
                 {/* Modal Header */}
                 <div className="bg-teal-700 text-white p-4 flex justify-between items-center shrink-0">
                     <h2 className="text-xl font-bold flex items-center gap-2">
-                        <Users size={24} /> User Management
+                        <Users size={24} /> {mode === 'teacher' ? 'Student Management' : 'User Management'}
                     </h2>
                     <button onClick={onClose} className="hover:bg-white/20 p-1 rounded-full text-white">
                         <X size={24} />
@@ -137,8 +138,12 @@ export default function UserManagementModal({ isOpen, onClose }) {
                                     <th className="p-3 font-semibold text-gray-700">Name</th>
                                     <th className="p-3 font-semibold text-gray-700">Surname</th>
                                     <th className="p-3 font-semibold text-gray-700">Email</th>
-                                    <th className="p-3 font-semibold text-gray-700">Current Role</th>
-                                    <th className="p-3 font-semibold text-gray-700">Change Role</th>
+                                    {mode === 'admin' && (
+                                        <>
+                                            <th className="p-3 font-semibold text-gray-700">Current Role</th>
+                                            <th className="p-3 font-semibold text-gray-700">Change Role</th>
+                                        </>
+                                    )}
                                     <th className="p-3 font-semibold text-gray-700"></th>
                                 </tr>
                             </thead>
@@ -149,25 +154,29 @@ export default function UserManagementModal({ isOpen, onClose }) {
                                         <td className="p-3">{user.name}</td>
                                         <td className="p-3">{user.surname}</td>
                                         <td className="p-3 text-sm">{user.email}</td>
-                                        <td className="p-3">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                        ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                    user.role === 'teacher' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-green-100 text-green-700'}`}>
-                                                {user.role}
-                                            </span>
-                                        </td>
-                                        <td className="p-3">
-                                            <select
-                                                value={user.role}
-                                                onChange={(e) => handleRoleChange(user.student_id, e.target.value)}
-                                                className="border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                                            >
-                                                <option value="student">Student</option>
-                                                <option value="teacher">Teacher</option>
-                                                <option value="admin">Admin</option>
-                                            </select>
-                                        </td>
+                                        {mode === 'admin' && (
+                                            <>
+                                                <td className="p-3">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                                                        ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                                                            user.role === 'teacher' ? 'bg-blue-100 text-blue-700' :
+                                                                'bg-green-100 text-green-700'}`}>
+                                                        {user.role}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3">
+                                                    <select
+                                                        value={user.role}
+                                                        onChange={(e) => handleRoleChange(user.student_id, e.target.value)}
+                                                        className="border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                                    >
+                                                        <option value="student">Student</option>
+                                                        <option value="teacher">Teacher</option>
+                                                        <option value="admin">Admin</option>
+                                                    </select>
+                                                </td>
+                                            </>
+                                        )}
                                         <td className="p-3">
                                             <button
                                                 onClick={() => setShowDeleteConfirm(user)}
@@ -190,12 +199,14 @@ export default function UserManagementModal({ isOpen, onClose }) {
                 isOpen={showAddUserModal}
                 onClose={() => setShowAddUserModal(false)}
                 onUserAdded={fetchUsers}
+                mode={mode}
             />
 
             <BulkUploadModal
                 isOpen={showBulkUploadModal}
                 onClose={() => setShowBulkUploadModal(false)}
                 onUploadComplete={fetchUsers}
+                mode={mode}
             />
 
             <ConfirmModal

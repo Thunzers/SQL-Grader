@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Notification from "./Notification";
 import ConfirmModal from "./ConfirmModal";
+import UserManagementModal from "./admin/UserManagementModal";
 
 const API_BASE = "http://localhost:5000";
 
@@ -42,6 +43,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [editingExercise, setEditingExercise] = useState(null);
   const [editingDataset, setEditingDataset] = useState(null);
+  const [showUserModal, setShowUserModal] = useState(false);
 
   // Assignment Form State
   const [assignmentForm, setAssignmentForm] = useState({
@@ -751,6 +753,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
               className={`px-3 py-1 rounded transition ${activeTab === "datasets" ? "bg-white/20" : "hover:bg-white/10"}`}
             >
               <Database size={16} className="inline mr-1" /> Datasets
+            </button>
+            <button
+              onClick={() => setShowUserModal(true)}
+              className="px-3 py-1 rounded transition hover:bg-white/10 text-teal-100 font-semibold"
+            >
+              <Users size={16} className="inline mr-1" /> Manage Students
             </button>
           </div>
         </div>
@@ -1685,6 +1693,13 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
       <Notification
         notification={notification}
         onClose={() => setNotification(null)}
+      />
+
+      {/* Teacher Student Management Modal */}
+      <UserManagementModal
+        isOpen={showUserModal}
+        onClose={() => setShowUserModal(false)}
+        mode="teacher"
       />
 
     </div>

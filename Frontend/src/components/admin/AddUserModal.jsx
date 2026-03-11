@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { UserPlus, X } from "lucide-react";
 
-export default function AddUserModal({ isOpen, onClose, onUserAdded }) {
+export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "admin" }) {
     const [newStudentId, setNewStudentId] = useState("");
     const [newName, setNewName] = useState("");
     const [newSurname, setNewSurname] = useState("");
@@ -31,7 +31,7 @@ export default function AddUserModal({ isOpen, onClose, onUserAdded }) {
                     name: newName.trim(),
                     surname: newSurname.trim(),
                     email: newUserEmail.trim(),
-                    role: newUserRole
+                    role: mode === 'teacher' ? 'student' : newUserRole
                 }),
             });
 
@@ -131,20 +131,22 @@ export default function AddUserModal({ isOpen, onClose, onUserAdded }) {
                         />
                     </div>
 
-                    <div className="mb-6">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            บทบาท
-                        </label>
-                        <select
-                            value={newUserRole}
-                            onChange={(e) => setNewUserRole(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
-                        >
-                            <option value="student">Student</option>
-                            <option value="teacher">Teacher</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
+                    {mode === 'admin' && (
+                        <div className="mb-6">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                บทบาท
+                            </label>
+                            <select
+                                value={newUserRole}
+                                onChange={(e) => setNewUserRole(e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
+                            >
+                                <option value="student">Student</option>
+                                <option value="teacher">Teacher</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                    )}
 
                     <div className="flex gap-3">
                         <button
