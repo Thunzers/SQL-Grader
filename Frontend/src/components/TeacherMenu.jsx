@@ -331,8 +331,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
   // Save Exercise
   const handleSaveExercise = async (e) => {
     e.preventDefault();
-    if (!exerciseForm.title || !exerciseForm.description || !exerciseForm.expected_query) {
-      alert("กรุณากรอกข้อมูลที่จำเป็น: ชื่อ, โจทย์, และคำตอบ SQL");
+    if (!exerciseForm.title || !exerciseForm.description) {
+      alert("กรุณากรอกข้อมูลที่จำเป็น: ชื่อ และโจทย์");
       return;
     }
 
@@ -1633,9 +1633,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Tip: กด "ทดสอบ SQL" ก่อน แล้วระบบจะนำผลลัพธ์มาใส่ให้อัตโนมัติเมื่อสร้าง Test Case ใหม่
-                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

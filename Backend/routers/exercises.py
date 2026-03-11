@@ -93,7 +93,7 @@ async def create_exercise(assign_id: int, request: Request):
 
     title = data.get("title")
     description = data.get("description")
-    expected_query = data.get("expected_query")
+    expected_query = data.get("expected_query") or ""
     dataset_id = data.get("dataset_id")
     points = data.get("points", 10)
     difficulty = data.get("difficulty", "medium")
@@ -189,7 +189,7 @@ async def update_exercise(exercise_id: int, request: Request):
             values.append(data["description"])
         if "expected_query" in data:
             update_fields.append("expected_query = %s")
-            values.append(data["expected_query"])
+            values.append(data.get("expected_query") or "")
         if "dataset_id" in data:
             update_fields.append("dataset_id = %s")
             values.append(data["dataset_id"])
