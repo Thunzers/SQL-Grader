@@ -282,6 +282,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
       if (res.ok) {
         notify("success", editingAssignment ? "แก้ไข Assignment สำเร็จ!" : "สร้าง Assignment สำเร็จ!");
         setShowAssignmentModal(false);
+        
+        // Update the selected assignment if we were editing it
+        if (editingAssignment && selectedAssignment?.assign_id === editingAssignment.assign_id) {
+          setSelectedAssignment(data.assignment);
+        }
+
         fetchAssignments();
         fetchCategories();
       } else {
