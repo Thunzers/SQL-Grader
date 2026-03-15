@@ -15,6 +15,11 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
   const [openProfile, setOpenProfile] = useState(false);
   const [activeTab, setActiveTab] = useState("assignments"); // assignments, datasets
 
+  // Category State
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [editingCategory, setEditingCategory] = useState({ id: null, name: "" });
+
   // Assignments State
   const [assignments, setAssignments] = useState([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
@@ -47,12 +52,11 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
 
   // Assignment Form State
   const [assignmentForm, setAssignmentForm] = useState({
-    category: "SELECT",
+    category_id: "",
     title: "",
     description: "",
     start_date: "",
     due_date: "",
-    max_attempts: 0,
     is_active: true
   });
 
@@ -62,8 +66,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
     description: "",
     expected_query: "",
     dataset_id: "",
-    points: 10,
-    difficulty: "medium",
+    points: 1,
+    difficulty: "",
     order_num: 0,
     hint: "",
     show_solution: false
@@ -225,26 +229,25 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
 
   // Open Assignment Modal (Create/Edit)
   const openAssignmentForm = (assignment = null) => {
+    setNewCategoryName("");
     if (assignment) {
       setEditingAssignment(assignment);
       setAssignmentForm({
-        category: assignment.category || "",
+        category_id: assignment.category_id || "",
         title: assignment.title || "",
         description: assignment.description || "",
         start_date: assignment.start_date ? assignment.start_date.substring(0, 16) : "",
         due_date: assignment.due_date ? assignment.due_date.substring(0, 16) : "",
-        max_attempts: assignment.max_attempts || 0,
         is_active: assignment.is_active !== false
       });
     } else {
       setEditingAssignment(null);
       setAssignmentForm({
-        category: "",
+        category_id: categories.length > 0 ? categories[0].category_id : "",
         title: "",
         description: "",
         start_date: "",
         due_date: "",
-        max_attempts: 0,
         is_active: true
       });
     }
@@ -254,7 +257,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
   // Save Assignment
   const handleSaveAssignment = async (e) => {
     e.preventDefault();
-    if (!assignmentForm.title || !assignmentForm.category) {
+    if (!assignmentForm.title || !assignmentForm.category_id) {
       alert("กรุณากรอกชื่อและหมวดหมู่");
       return;
     }
@@ -545,35 +548,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
     }
   };
 
-  // Test SQL on Sandbox
-  const handleTestSQL = async () => {
-    if (!exerciseForm.expected_query) {
-      alert("กรุณากรอก SQL ที่ต้องการทดสอบก่อน");
-      return;
-    }
-
-    setTestingSQL(true);
-    setSqlTestResult(null);
-    try {
-      // ส่ง dataset_id ให้ backend ดึง schema/seed เอง
-      const res = await fetch(`${API_BASE}/api/run-sql`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dataset_id: exerciseForm.dataset_id || null,
-          query: exerciseForm.expected_query
-        })
-      });
-      const data = await res.json();
-      setSqlTestResult(data);
-    } catch (error) {
-      console.error("Error testing SQL:", error);
-      setSqlTestResult({ success: false, error: "ไม่สามารถเชื่อมต่อ server ได้" });
-    } finally {
-      setTestingSQL(false);
-    }
-  };
-
   // Open Test Case Modal
   const openTestCaseForm = (testCase = null) => {
     if (testCase) {
@@ -860,7 +834,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                            {a.category}
+                            {a.category_name || (categories.find(c => c.category_id === a.category_id)?.name || a.category || "General")}
                           </span>
                           <h3 className="font-semibold text-gray-800 mt-1">
                             {a.title}
@@ -887,7 +861,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                        {selectedAssignment.category}
+                        {selectedAssignment.category_name || (categories.find(c => c.category_id === selectedAssignment.category_id)?.name || selectedAssignment.category || "General")}
                       </span>
                       <h2 className="text-xl font-bold text-gray-800 mt-1 flex items-center gap-2">
                         {selectedAssignment.title}
@@ -1029,7 +1003,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                             onClick={handleExportCSV}
                             className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
                           >
-                            <FileText size={14} />
                             Export CSV
                           </button>
                           <div className="text-sm text-gray-500">
@@ -1190,19 +1163,26 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   หมวดหมู่ <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={assignmentForm.category}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, category: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
-                >
-                  {Array.from(new Set([
-                    ...categories, 
-                    assignmentForm.category, 
-                    editingAssignment?.category
-                  ])).filter(Boolean).map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={assignmentForm.category_id}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, category_id: parseInt(e.target.value) })}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
+                  >
+                    <option value="" disabled>-- เลือกหมวดหมู่ --</option>
+                    {categories.map((cat) => (
+                      <option key={cat.category_id} value={cat.category_id}>{cat.name}</option>
+                    ))}
+                  </select>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowCategoryModal(true)}
+                    className="bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg transition flex items-center gap-1"
+                    title="จัดการหมวดหมู่"
+                  >
+                    แก้ไข
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -1273,31 +1253,16 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    <Target size={14} className="inline mr-1" /> จำนวนครั้งที่ส่งได้
-                  </label>
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
-                    type="number"
-                    min="0"
-                    value={assignmentForm.max_attempts}
-                    onChange={(e) => setAssignmentForm({ ...assignmentForm, max_attempts: parseInt(e.target.value) || 0 })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
+                    type="checkbox"
+                    checked={assignmentForm.is_active}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
+                    className="w-4 h-4 text-teal-600 rounded"
                   />
-                  <p className="text-xs text-gray-500 mt-1">0 = ไม่จำกัด</p>
-                </div>
-                <div className="flex items-center pt-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={assignmentForm.is_active}
-                      onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
-                      className="w-4 h-4 text-teal-600 rounded"
-                    />
-                    <span className="text-sm font-semibold text-gray-700">เปิดให้นักศึกษาเห็น</span>
-                  </label>
-                </div>
+                  <span className="text-sm font-semibold text-gray-700">เปิดให้นักศึกษาเห็น</span>
+                </label>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -1513,30 +1478,9 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 </div>
 
                 {/* Input */}
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="text"
-                    placeholder="พิมพ์ keyword แล้วกด Enter"
-                    className="flex-1 border border-amber-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-amber-400 outline-none bg-white"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const val = e.target.value.trim().toUpperCase();
-                        if (val && !(exerciseForm.required_keywords || []).includes(val)) {
-                          setExerciseForm({
-                            ...exerciseForm,
-                            required_keywords: [...(exerciseForm.required_keywords || []), val]
-                          });
-                          e.target.value = "";
-                        }
-                      }
-                    }}
-                  />
-                </div>
-
                 {/* Preset Suggestions */}
                 <div className="flex flex-wrap gap-1">
-                  {["WHERE", "AND", "OR", "JOIN", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "GROUP BY", "HAVING", "ORDER BY", "DISTINCT", "LIKE", "IN", "BETWEEN", "EXISTS", "UNION", "SUBQUERY", "COUNT", "SUM", "AVG", "MAX", "MIN"].map((preset) => (
+                  {["WHERE", "AND", "OR", "JOIN", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "GROUP BY", "HAVING", "ORDER BY", "DISTINCT", "LIKE", "IN", "BETWEEN", "EXISTS", "UNION"].map((preset) => (
                     <button
                       key={preset}
                       type="button"
@@ -1782,6 +1726,182 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
         onClose={() => setShowUserModal(false)}
         mode="teacher"
       />
+
+      {/* === CATEGORY MANAGEMENT MODAL === */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-teal-700 text-white p-4 flex justify-between items-center shrink-0">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Tag size={20} /> จัดการหมวดหมู่
+              </h2>
+              <button onClick={() => setShowCategoryModal(false)} className="hover:bg-white/20 p-1 rounded-full text-white">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-4 border-b border-gray-200 shrink-0">
+               <div className="flex gap-2">
+                 <input 
+                   type="text" 
+                   value={newCategoryName}
+                   onChange={(e) => setNewCategoryName(e.target.value)}
+                   placeholder="พิมพ์ชื่อหมวดหมู่ใหม่..."
+                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-teal-500"
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter') {
+                       e.preventDefault();
+                       // Simulate click on add button
+                       document.getElementById('add-category-btn').click();
+                     }
+                   }}
+                 />
+                 <button 
+                   id="add-category-btn"
+                   type="button" 
+                   onClick={async () => {
+                     if(!newCategoryName.trim()) return;
+                     try {
+                       const res = await fetch(`${API_BASE}/api/categories`, {
+                         method: "POST", headers: { "Content-Type": "application/json" },
+                         body: JSON.stringify({ name: newCategoryName.trim() })
+                       });
+                       if(res.ok) {
+                         const newCat = await res.json();
+                         setCategories([...categories, newCat]);
+                         setNewCategoryName("");
+                         notify("success", "เพิ่มหมวดหมู่ใหม่สำเร็จ");
+                       } else {
+                         const data = await res.json();
+                         notify("error", data.error || "เกิดข้อผิดพลาด");
+                       }
+                     } catch (error) { notify("error", "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้"); }
+                   }}
+                   disabled={!newCategoryName.trim()}
+                   className="bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition"
+                 >เพิ่ม</button>
+               </div>
+            </div>
+
+            <div className="overflow-y-auto p-4 flex-1">
+              {categories.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">ไม่มีหมวดหมู่</p>
+              ) : (
+                <ul className="space-y-2">
+                  {categories.map(cat => (
+                    <li key={cat.category_id} className="flex justify-between items-center p-2 border border-gray-100 rounded-lg hover:bg-gray-50 flex-wrap gap-2">
+                      {editingCategory.id === cat.category_id ? (
+                        <div className="flex flex-1 items-center gap-2">
+                          <input 
+                            type="text" 
+                            value={editingCategory.name}
+                            onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                            className="flex-1 border border-teal-300 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-teal-500 text-sm"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                document.getElementById(`save-cat-${cat.category_id}`).click();
+                              }
+                            }}
+                          />
+                          <button
+                            id={`save-cat-${cat.category_id}`}
+                            onClick={async () => {
+                              if(!editingCategory.name.trim() || editingCategory.name.trim() === cat.name) {
+                                setEditingCategory({ id: null, name: "" });
+                                return;
+                              }
+                              try {
+                                const res = await fetch(`${API_BASE}/api/categories/${cat.category_id}`, {
+                                  method: "PUT",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ name: editingCategory.name.trim() })
+                                });
+                                if (res.ok) {
+                                  const updatedCat = await res.json();
+                                  setCategories(categories.map(c => c.category_id === updatedCat.category_id ? updatedCat : c));
+                                  setEditingCategory({ id: null, name: "" });
+                                  fetchAssignments(); // Refresh assignment list to show new category name immediately
+                                  notify("success", "แก้ไขชื่อหมวดหมู่สำเร็จ");
+                                } else {
+                                  const data = await res.json();
+                                  notify("error", data.error || "เกิดข้อผิดพลาด");
+                                }
+                              } catch(err) {
+                                notify("error", "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+                              }
+                            }}
+                            className="text-white bg-teal-500 hover:bg-teal-600 p-1 rounded"
+                            title="บันทึก"
+                          >
+                            <Save size={16} />
+                          </button>
+                          <button
+                            onClick={() => setEditingCategory({ id: null, name: "" })}
+                            className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-200 rounded"
+                            title="ยกเลิก"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="font-medium text-gray-700 flex-1">{cat.name}</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setEditingCategory({ id: cat.category_id, name: cat.name })}
+                              className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded"
+                              title="แก้ไขชื่อหมวดหมู่"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ "${cat.name}"?\n(ไม่สามารถลบได้หากมีแบบฝึกหัดที่ใช้หมวดหมู่นี้อยู่)`)) {
+                                  try {
+                                    const res = await fetch(`${API_BASE}/api/categories/${cat.category_id}`, {
+                                      method: 'DELETE'
+                                    });
+                                    if(res.ok) {
+                                      setCategories(categories.filter(c => c.category_id !== cat.category_id));
+                                      if (assignmentForm.category_id === cat.category_id) {
+                                        setAssignmentForm({ ...assignmentForm, category_id: "" });
+                                      }
+                                      notify("success", "ลบหมวดหมู่สำเร็จ");
+                                    } else {
+                                      const data = await res.json();
+                                      notify("error", data.error || "ลบไม่สำเร็จ (อาจมีการใช้งานอยู่)");
+                                    }
+                                  } catch(err) {
+                                     notify("error", "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+                                  }
+                                }
+                              }}
+                              className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
+                              title="ลบหมวดหมู่"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 shrink-0 text-right bg-gray-50">
+               <button 
+                 onClick={() => setShowCategoryModal(false)}
+                 className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition"
+               >
+                 ปิด
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -20,26 +20,89 @@ def get_classes():
     else:
         return JSONResponse([], status_code=500)
 
+from pydantic import BaseModel
+
+class CategoryCreate(BaseModel):
+    name: str
+
 @router.get("/api/categories")
 def get_categories():
-    """Get distinct categories from assignments"""
+    """Get all categories from the categories table"""
     conn = get_db_connection()
     if not conn:
         return JSONResponse({"error": "Database connection failed"}, status_code=500)
 
     try:
-        cur = conn.cursor()
-        cur.execute("SELECT DISTINCT category FROM assignments ORDER BY category")
-        categories = [row[0] for row in cur.fetchall()]
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM categories ORDER BY name")
+        categories = cur.fetchall()
         cur.close()
         conn.close()
-
-        # Add default categories if empty
-        if not categories:
-            categories = ["SELECT", "JOIN", "GROUP BY", "SUBQUERY","WHERE"]
-
-        return JSONResponse(categories, status_code=200)
+        return JSONResponse([serialize_row(c) for c in categories], status_code=200)
     except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@router.post("/api/categories")
+def create_category(category: CategoryCreate):
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database connection failed"}, status_code=500)
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("INSERT INTO categories (name) VALUES (%s) RETURNING *", (category.name,))
+        new_cat = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        return JSONResponse(serialize_row(new_cat), status_code=201)
+    except Exception as e:
+        if "unique constraint" in str(e).lower():
+            return JSONResponse({"error": "Category already exists"}, status_code=400)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@router.delete("/api/categories/{category_id}")
+def delete_category(category_id: int):
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database connection failed"}, status_code=500)
+    try:
+        cur = conn.cursor()
+        # Check if used
+        cur.execute("SELECT COUNT(*) FROM assignments WHERE category_id = %s", (category_id,))
+        if cur.fetchone()[0] > 0:
+            return JSONResponse({"error": "Cannot delete category in use by assignments"}, status_code=400)
+            
+        cur.execute("DELETE FROM categories WHERE category_id = %s RETURNING category_id", (category_id,))
+        deleted = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        if not deleted:
+             return JSONResponse({"error": "Category not found"}, status_code=404)
+        return JSONResponse({"message": "Category deleted successfully"}, status_code=200)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@router.put("/api/categories/{category_id}")
+def update_category(category_id: int, category: CategoryCreate):
+    conn = get_db_connection()
+    if not conn:
+        return JSONResponse({"error": "Database connection failed"}, status_code=500)
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("UPDATE categories SET name = %s WHERE category_id = %s RETURNING *", (category.name, category_id))
+        updated = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        if not updated:
+            return JSONResponse({"error": "Category not found"}, status_code=404)
+            
+        return JSONResponse(serialize_row(updated), status_code=200)
+    except Exception as e:
+        if "unique constraint" in str(e).lower():
+            return JSONResponse({"error": "Category name already exists"}, status_code=400)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.get("/api/assignments")
@@ -54,15 +117,16 @@ def get_assignments(category: str = None, user_id: str = None):
         # Base CTE to get assignment info + total max score from exercises
         cte_sql = """
             WITH AssignInfo AS (
-                SELECT a.*,
+                SELECT a.*, c.name as category_name,
                        COUNT(e.exercise_id) as exercise_count,
                        COALESCE(SUM(e.points), 0) as max_score
                 FROM assignments a
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 LEFT JOIN exercises e ON a.assign_id = e.assign_id
                 WHERE 1=1
                 {active_filter}
                 {category_filter}
-                GROUP BY a.assign_id
+                GROUP BY a.assign_id, c.name
             )
         """
         
@@ -93,12 +157,12 @@ def get_assignments(category: str = None, user_id: str = None):
             ORDER BY ai.created_at DESC
             """
             
-            category_filter = "AND a.category = %s" if category else ""
+            category_filter = "AND a.category_id = %s" if category else ""
             query = query.format(active_filter="AND a.is_active = TRUE", category_filter=category_filter)
             
             params = [user_id]
             if category:
-                params.insert(0, category)
+                params.insert(0, int(category))
                 
             cur.execute(query, tuple(params))
         else:
@@ -107,11 +171,11 @@ def get_assignments(category: str = None, user_id: str = None):
             ORDER BY created_at DESC
             """
             
-            category_filter = "AND a.category = %s" if category else ""
+            category_filter = "AND a.category_id = %s" if category else ""
             query = query.format(active_filter="", category_filter=category_filter)
             
             if category:
-                cur.execute(query, (category,))
+                cur.execute(query, (int(category),))
             else:
                 cur.execute(query)
 
@@ -136,13 +200,14 @@ def get_assignment(assign_id: int, user_id: str = None):
         if user_id:
             cur.execute("""
                 WITH AssignInfo AS (
-                    SELECT a.*,
+                    SELECT a.*, c.name as category_name,
                            COUNT(e.exercise_id) as exercise_count,
                            COALESCE(SUM(e.points), 0) as max_score
                     FROM assignments a
+                    LEFT JOIN categories c ON a.category_id = c.category_id
                     LEFT JOIN exercises e ON a.assign_id = e.assign_id
                     WHERE a.assign_id = %s AND a.is_active = TRUE
-                    GROUP BY a.assign_id
+                    GROUP BY a.assign_id, c.name
                 )
                 SELECT ai.*,
                        COALESCE(sub.user_score, 0) as user_score,
@@ -166,10 +231,11 @@ def get_assignment(assign_id: int, user_id: str = None):
             """, (assign_id, user_id))
         else:
             cur.execute("""
-                SELECT a.*,
+                SELECT a.*, c.name as category_name,
                        (SELECT COUNT(*) FROM exercises e WHERE e.assign_id = a.assign_id) as exercise_count,
                        (SELECT COALESCE(SUM(points), 0) FROM exercises e WHERE e.assign_id = a.assign_id) as max_score
                 FROM assignments a
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 WHERE a.assign_id = %s
             """, (assign_id,))
             
@@ -266,7 +332,7 @@ async def create_assignment(request: Request):
     except Exception:
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
-    category = data.get("category")
+    category_id = data.get("category_id")
     title = data.get("title")
     description = data.get("description", "")
     start_date = data.get("start_date")
@@ -275,8 +341,8 @@ async def create_assignment(request: Request):
     is_active = data.get("is_active", True)
     created_by = data.get("created_by")
 
-    if not all([category, title]):
-        return JSONResponse({"error": "Required fields: category, title"}, status_code=400)
+    if not all([category_id, title]):
+        return JSONResponse({"error": "Required fields: category_id, title"}, status_code=400)
 
     conn = get_db_connection()
     if not conn:
@@ -285,10 +351,10 @@ async def create_assignment(request: Request):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
-            INSERT INTO assignments (category, title, description, start_date, due_date, max_attempts, is_active, created_by)
+            INSERT INTO assignments (category_id, title, description, start_date, due_date, max_attempts, is_active, created_by)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
-        """, (category, title, description, start_date, due_date, max_attempts, is_active, created_by))
+        """, (category_id, title, description, start_date, due_date, max_attempts, is_active, created_by))
         new_assignment = cur.fetchone()
         conn.commit()
         cur.close()
@@ -322,9 +388,9 @@ async def update_assignment(assign_id: int, request: Request):
         update_fields = []
         values = []
 
-        if "category" in data:
-            update_fields.append("category = %s")
-            values.append(data["category"])
+        if "category_id" in data:
+            update_fields.append("category_id = %s")
+            values.append(data["category_id"])
         if "title" in data:
             update_fields.append("title = %s")
             values.append(data["title"])

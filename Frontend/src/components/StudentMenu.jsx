@@ -139,7 +139,7 @@ export default function StudentMenu({ setIsLoggedIn, userEmail, userId }) {
                       {assignment.title}
                     </h3>
                     <p className="text-sm opacity-80 line-clamp-2 mt-1">
-                      {assignment.category || "General SQL"}
+                      {assignment.category_name || "General SQL"}
                     </p>
                   </div>
                   <div className="flex gap-2">

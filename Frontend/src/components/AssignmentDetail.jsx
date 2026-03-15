@@ -126,7 +126,7 @@ export default function AssignmentDetail({ userId }) {
                 </div>
                 <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded">
                   <Target size={16} />
-                  <span>{assignment?.category || "General"}</span>
+                  <span>{assignment?.category_name || "General"}</span>
                 </div>
                 {assignment?.due_date && (
                   <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded">

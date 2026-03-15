@@ -174,7 +174,22 @@ async def bulk_upload_users(file: UploadFile = File(...), force_student: bool = 
         contents = await file.read()
 
         if file.filename.endswith('.csv'):
-            df = pd.read_csv(io.BytesIO(contents))
+            encodings_to_try = ['utf-8', 'utf-8-sig', 'tis-620', 'cp1252']
+            df = None
+            last_error = None
+            
+            for encoding in encodings_to_try:
+                try:
+                    df = pd.read_csv(io.BytesIO(contents), encoding=encoding)
+                    break # Success!
+                except UnicodeDecodeError as e:
+                    last_error = e
+                    continue # Try the next encoding
+            
+            if df is None:
+                return JSONResponse({
+                    "error": f"Unable to read CSV file. Please save it as UTF-8 or CSV (Comma delimited). Supported encodings failed: {', '.join(encodings_to_try)}."
+                }, status_code=400)
         else:
             df = pd.read_excel(io.BytesIO(contents))
 

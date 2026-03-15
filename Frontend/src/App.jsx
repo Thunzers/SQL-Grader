@@ -4,7 +4,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import Login from "./components/Login";
 import StudentDashboard from "./components/StudentMenu";
 import TeacherDashboard from "./components/TeacherMenu";
-import AdminDashboard from "./components/AdminMenu";
+import AdminDashboard from "./components/admin/AdminMenu";
 import AssignmentDetail from "./components/AssignmentDetail";
 import ExerciseSolve from "./components/ExerciseSolve";
 

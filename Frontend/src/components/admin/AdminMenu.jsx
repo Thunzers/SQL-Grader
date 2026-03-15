@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"; 
 import { ChevronDown, LogOut, User, Users, BookOpen, BarChart3, Loader2, ClipboardList, ArrowLeft } from "lucide-react";
-import UserManagementModal from "./admin/UserManagementModal";
+import UserManagementModal from "./UserManagementModal";
 import axios from "axios"; 
 
 export default function AdminDashboard({ setIsLoggedIn, userEmail, userId }) {

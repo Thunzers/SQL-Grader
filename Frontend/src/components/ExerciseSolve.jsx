@@ -384,10 +384,6 @@ export default function ExerciseSolve({ userId }) {
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs">
-           <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
-            <span className="text-white/80">Attempts</span>
-            <span className="font-semibold">{exercise.attempts_left || "∞"}</span>
-          </div>
           <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
             <span className="text-white/80">Points</span>
             <span className="font-semibold">{exercise.points}</span>
@@ -542,7 +538,7 @@ export default function ExerciseSolve({ userId }) {
                 className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-red-200 active:scale-95"
               >
                 <AlertCircle size={14} />
-                เริ่มใหม่
+                Reset
               </button>
               <button
                 onClick={handleRun}
