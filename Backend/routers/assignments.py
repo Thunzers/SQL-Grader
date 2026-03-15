@@ -215,6 +215,7 @@ def get_assignment_student_progress(assign_id: int):
             SELECT 
                 u.user_id,
                 u.name as student_name,
+                u.surname,
                 u.email,
                 COALESCE(sub.user_score, 0) as user_score,
                 COALESCE(sub.completed_exercises, 0) as completed_exercises,
@@ -225,7 +226,7 @@ def get_assignment_student_progress(assign_id: int):
             LEFT JOIN (
                 SELECT 
                     s.user_id,
-                    SUM(s.user_score) as user_score,
+                    SUM(s.total_score) as user_score,
                     COUNT(s.exercise_id) as completed_exercises,
                     MAX(s.last_submission_at) as last_submission_time
                 FROM (

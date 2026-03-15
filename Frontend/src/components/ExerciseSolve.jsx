@@ -5,7 +5,7 @@ import MonacoSQLEditor from "./MonacoSQLEditor";
 import SubmitResultModal from "./SubmitResultModal";
 import ConfirmModal from "./ConfirmModal";
 
-export default function ExerciseSolve() {
+export default function ExerciseSolve({ userId }) {
   const { exerciseId } = useParams();
   const navigate = useNavigate();
   const [exercise, setExercise] = useState(null);
@@ -36,9 +36,6 @@ export default function ExerciseSolve() {
   const [showProblemList, setShowProblemList] = useState(false);
   const [assignmentExercises, setAssignmentExercises] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
-
-  const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
-  const userId = sessionData.userId;
 
   // Fetch Exercise Detail
   useEffect(() => {

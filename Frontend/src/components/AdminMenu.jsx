@@ -3,7 +3,7 @@ import { ChevronDown, LogOut, User, Users, BookOpen, BarChart3, Loader2, Clipboa
 import UserManagementModal from "./admin/UserManagementModal";
 import axios from "axios"; 
 
-export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
+export default function AdminDashboard({ setIsLoggedIn, userEmail, userId }) {
   const [openProfile, setOpenProfile] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [view, setView] = useState("dashboard"); // เพิ่ม State สำหรับสลับหน้า
@@ -61,7 +61,6 @@ export default function AdminDashboard({ setIsLoggedIn, userEmail }) {
           </div>
           {openProfile && (
             <div className="absolute right-0 mt-2 w-44 bg-white text-black rounded-lg shadow-lg overflow-hidden z-50">
-              <button className="w-full px-4 py-3 flex items-center gap-2 hover:bg-gray-100"><User size={18} /> Profile</button>
               <button className="w-full px-4 py-3 flex items-center gap-2 text-red-600 hover:bg-gray-100" onClick={() => setIsLoggedIn(false)}><LogOut size={18} /> Logout</button>
             </div>
           )}

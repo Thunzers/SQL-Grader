@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Clock, BookOpen, Target, AlertTriangle } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 
-export default function AssignmentDetail() {
+export default function AssignmentDetail({ userId }) {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
   const [assignment, setAssignment] = useState(null);
@@ -10,10 +10,6 @@ export default function AssignmentDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPastDue, setIsPastDue] = useState(false);
   const timerRef = useRef(null);
-
-  // Get user ID from session
-  const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
-  const userId = sessionData.userId;
 
   useEffect(() => {
     if (!assignmentId) return;

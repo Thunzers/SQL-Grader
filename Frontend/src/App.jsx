@@ -47,11 +47,25 @@ export default function App() {
           const res = await fetch(`http://localhost:5000/api/users/profile?email=${userEmail}`);
           if (res.ok) {
             const data = await res.json();
-            if (data.success && data.user.role !== role) {
-              setRole(data.user.role);
-              // Update localStorage immediately to prevent race conditions
-              const currentSession = JSON.parse(localStorage.getItem("session") || "{}");
-              localStorage.setItem("session", JSON.stringify({ ...currentSession, role: data.user.role }));
+            if (data.success) {
+              let updated = false;
+              if (data.user.role !== role) {
+                setRole(data.user.role);
+                updated = true;
+              }
+              if (data.user.user_id !== userId) {
+                setUserId(data.user.user_id);
+                updated = true;
+              }
+
+              if (updated) {
+                const currentSession = JSON.parse(localStorage.getItem("session") || "{}");
+                localStorage.setItem("session", JSON.stringify({ 
+                  ...currentSession, 
+                  role: data.user.role,
+                  userId: data.user.user_id 
+                }));
+              }
             }
           }
         } catch (error) {
@@ -117,17 +131,17 @@ export default function App() {
       {/* Student Routes */}
       <Route path="/student" element={
         <ProtectedRoute allowedRole="student">
-          <StudentDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} />
+          <StudentDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} userId={userId} />
         </ProtectedRoute>
       } />
       <Route path="/assignment/:assignmentId" element={
         <ProtectedRoute allowedRole="student">
-          <AssignmentDetail />
+          <AssignmentDetail userId={userId} />
         </ProtectedRoute>
       } />
       <Route path="/exercise/:exerciseId" element={
         <ProtectedRoute allowedRole="student">
-          <ExerciseSolve />
+          <ExerciseSolve userId={userId} />
         </ProtectedRoute>
       } />
 
@@ -141,7 +155,7 @@ export default function App() {
       {/* Admin Routes */}
       <Route path="/admin" element={
         <ProtectedRoute allowedRole="admin">
-          <AdminDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} />
+          <AdminDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} userId={userId} />
         </ProtectedRoute>
       } />
 

@@ -155,6 +155,37 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
     }
   };
 
+  const handleExportCSV = () => {
+    if (!studentProgress || studentProgress.length === 0) {
+      notify("error", "ไม่มีข้อมูลสำหรับ Export");
+      return;
+    }
+
+    const headers = ["user_id", "ชื่อ", "นามสกุล", "คะแนนรวม"];
+    const csvRows = [headers.join(",")];
+    
+    studentProgress.forEach(student => {
+      const row = [
+        student.user_id || "",
+        `"${(student.student_name || "").replace(/"/g, '""')}"`,
+        `"${(student.surname || "").replace(/"/g, '""')}"`,
+        student.user_score || 0
+      ];
+      csvRows.push(row.join(","));
+    });
+    
+    const csvString = csvRows.join("\n");
+    const blob = new Blob(["\uFEFF" + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `progress_${selectedAssignment.title.replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    notify("success", "Export CSV สำเร็จ!");
+  };
+
   // Fetch datasets
   const fetchDatasets = async () => {
     setLoadingDatasets(true);
@@ -775,9 +806,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
 
           {openProfile && (
             <div className="absolute right-0 mt-2 w-44 bg-white text-black rounded-lg shadow-lg overflow-hidden z-50">
-              <button className="w-full px-4 py-3 flex items-center gap-2 hover:bg-gray-100">
-                <User size={18} /> Profile
-              </button>
               <button
                 className="w-full px-4 py-3 flex items-center gap-2 text-red-600 hover:bg-gray-100"
                 onClick={() => setIsLoggedIn(false)}
@@ -968,9 +996,27 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                   {activeAssignTab === "progress" && (
                     <div className="space-y-4">
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-700">Student Progress</h3>
-                        <div className="text-sm text-gray-500">
-                          มีผู้ส่งงาน {studentProgress.filter(p => p.completed_exercises > 0).length} / {studentProgress.length} คน
+                        <div className="flex items-center gap-4">
+                          <h3 className="text-lg font-semibold text-gray-700">Student Progress</h3>
+                          <button 
+                            onClick={() => fetchStudentProgress(selectedAssignment.assign_id)}
+                            className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition"
+                            title="รีเฟรชข้อมูล"
+                          >
+                            <Loader2 size={18} className={loadingProgress ? "animate-spin" : ""} />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={handleExportCSV}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                          >
+                            <FileText size={14} />
+                            Export CSV
+                          </button>
+                          <div className="text-sm text-gray-500">
+                            มีผู้ส่งงาน {studentProgress.filter(p => p.completed_exercises > 0).length} / {studentProgress.length} คน
+                          </div>
                         </div>
                       </div>
 
@@ -1006,7 +1052,9 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                                   <tr key={student.user_id || idx} className="hover:bg-gray-50 transition">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{idx + 1}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">{student.user_id || "-"}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.student_name || student.email}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                      {student.student_name} {student.surname || ""}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                       <div className="flex items-center gap-2">
                                         <BookOpen size={14} className={student.completed_exercises === student.total_exercises ? "text-green-500" : "text-gray-400"} />

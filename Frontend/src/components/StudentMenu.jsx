@@ -2,15 +2,11 @@ import { useState, useEffect } from "react";
 import { ChevronDown, LogOut, User, BookOpen, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function StudentMenu({ setIsLoggedIn, userEmail }) {
+export default function StudentMenu({ setIsLoggedIn, userEmail, userId }) {
   const navigate = useNavigate();
   const [openProfile, setOpenProfile] = useState(false);
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Get user ID from session
-  const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
-  const userId = sessionData.userId;
 
   // Fetch Assignments
   useEffect(() => {
@@ -67,9 +63,6 @@ export default function StudentMenu({ setIsLoggedIn, userEmail }) {
 
           {openProfile && (
             <div className="absolute right-0 mt-2 w-44 bg-white text-black rounded-lg shadow-lg overflow-hidden z-50">
-              <button className="w-full px-4 py-3 flex items-center gap-2 hover:bg-gray-100">
-                <User size={18} /> Profile
-              </button>
               <button
                 className="w-full px-4 py-3 flex items-center gap-2 text-red-600 hover:bg-gray-100"
                 onClick={() => setIsLoggedIn(false)}

@@ -24,7 +24,7 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin" })
             const response = await fetch(endpoint);
             const data = await response.json();
             const usersData = Array.isArray(data)
-                ? data.slice().sort((a, b) => Number(a.id) - Number(b.id))
+                ? data.slice().sort((a, b) => String(a.user_id).localeCompare(String(b.user_id)))
                 : data;
             setUsers(usersData);
         } catch (error) {
