@@ -36,7 +36,7 @@ export default function AssignmentDetail({ userId }) {
         console.error("Error fetching assignment details:", error);
         setIsLoading(false);
       });
-  }, [assignmentId]);
+  }, [assignmentId, userId]);
 
   // Real-time due_date check (every second)
   useEffect(() => {

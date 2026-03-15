@@ -187,7 +187,7 @@ export default function ExerciseSolve({ userId }) {
     setOutputTab("output");
 
     try {
-      const uId = localStorage.getItem("user_id");
+      const uId = userId || localStorage.getItem("user_id");
       const response = await fetch(`http://localhost:5000/api/exercises/${exerciseId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -217,7 +217,7 @@ export default function ExerciseSolve({ userId }) {
       confirmText: "เริ่มใหม่ (Reset)",
       cancelText: "ยกเลิก",
       onConfirm: async () => {
-        const uId = localStorage.getItem("user_id");
+        const uId = userId || localStorage.getItem("user_id");
         setError(null);
         setResults(null);
         setTestResults(null);
@@ -256,7 +256,7 @@ export default function ExerciseSolve({ userId }) {
       confirmText: "ส่งคำตอบ",
       cancelText: "ยกเลิก",
       onConfirm: async () => {
-        const uId = localStorage.getItem("user_id");
+        const uId = userId || localStorage.getItem("user_id");
 
         setIsSubmitting(true);
         setError(null);

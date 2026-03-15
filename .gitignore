@@ -8,10 +8,14 @@ pnpm-debug.log*
 lerna-debug.log*
 
 Frontend/node_modules/
+Backend/__pycache__/
+Backend/routers/__pycache__/
 node_modules/
 dist
 dist-ssr
 *.local
+__pycache__/
+*.pyc
 
 # Editor directories and files
 .claude/*

@@ -30,7 +30,7 @@ export default function StudentMenu({ setIsLoggedIn, userEmail, userId }) {
         console.error("Error fetching assignments:", error);
         setIsLoading(false);
       });
-  }, []);
+  }, [userId]);
 
   const handleAssignmentClick = (assignmentId) => {
     navigate(`/assignment/${assignmentId}`);
