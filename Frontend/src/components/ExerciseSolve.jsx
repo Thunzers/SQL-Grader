@@ -38,7 +38,7 @@ export default function ExerciseSolve() {
   const [loadingList, setLoadingList] = useState(false);
 
   const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
-  const studentId = sessionData.studentId;
+  const userId = sessionData.userId;
 
   // Fetch Exercise Detail
   useEffect(() => {
@@ -76,8 +76,8 @@ export default function ExerciseSolve() {
     if (!exercise?.assign_id) return;
     
     setLoadingList(true);
-    const url = studentId 
-      ? `http://localhost:5000/api/assignments/${exercise.assign_id}/exercises?student_id=${studentId}`
+    const url = userId 
+      ? `http://localhost:5000/api/assignments/${exercise.assign_id}/exercises?user_id=${userId}`
       : `http://localhost:5000/api/assignments/${exercise.assign_id}/exercises`;
 
     fetch(url)
@@ -90,7 +90,7 @@ export default function ExerciseSolve() {
         console.error("Error fetching assignment exercises:", err);
         setLoadingList(false);
       });
-  }, [exercise?.assign_id, studentId]);
+  }, [exercise?.assign_id, userId]);
 
   // Real-time due_date check — auto-redirect when expired
   useEffect(() => {
@@ -190,11 +190,11 @@ export default function ExerciseSolve() {
     setOutputTab("output");
 
     try {
-      const studentId = localStorage.getItem("student_id");
+      const uId = localStorage.getItem("user_id");
       const response = await fetch(`http://localhost:5000/api/exercises/${exerciseId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, student_id: studentId }),
+        body: JSON.stringify({ query, user_id: uId }),
       });
 
       const data = await response.json();
@@ -220,7 +220,7 @@ export default function ExerciseSolve() {
       confirmText: "เริ่มใหม่ (Reset)",
       cancelText: "ยกเลิก",
       onConfirm: async () => {
-        const studentId = localStorage.getItem("student_id");
+        const uId = localStorage.getItem("user_id");
         setError(null);
         setResults(null);
         setTestResults(null);
@@ -229,7 +229,7 @@ export default function ExerciseSolve() {
           const response = await fetch(`http://localhost:5000/api/exercises/${exerciseId}/reset`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ student_id: studentId }),
+            body: JSON.stringify({ user_id: uId }),
           });
           
           if (!response.ok) {
@@ -259,7 +259,7 @@ export default function ExerciseSolve() {
       confirmText: "ส่งคำตอบ",
       cancelText: "ยกเลิก",
       onConfirm: async () => {
-        const studentId = localStorage.getItem("student_id");
+        const uId = localStorage.getItem("user_id");
 
         setIsSubmitting(true);
         setError(null);
@@ -270,7 +270,7 @@ export default function ExerciseSolve() {
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query, student_id: studentId }),
+              body: JSON.stringify({ query, user_id: uId }),
             }
           );
 

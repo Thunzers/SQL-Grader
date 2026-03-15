@@ -38,15 +38,15 @@ export default function Login({ onLoginSuccess }) {
       if (data.success) {
         console.log("Google Login สำเร็จ:", data.email, "| Role:", data.role);
 
-        // Save student_id to localStorage if user exists
-        if (data.user_exists && data.student_id) {
-          localStorage.setItem("student_id", data.student_id);
+        // Save user_id to localStorage if user exists
+        if (data.user_exists && data.user_id) {
+          localStorage.setItem("user_id", data.user_id);
           localStorage.setItem("user_email", data.email);
           localStorage.setItem("user_role", data.role);
-          console.log("Saved to localStorage:", data.student_id);
+          console.log("Saved to localStorage:", data.user_id);
         }
 
-        onLoginSuccess(data.email, data.role, data.student_id);
+        onLoginSuccess(data.email, data.role, data.user_id);
       } else {
         setErrorMsg(data.error || "Login failed (Unknown Error from Server)");
       }

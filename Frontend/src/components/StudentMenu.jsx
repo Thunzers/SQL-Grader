@@ -8,14 +8,14 @@ export default function StudentMenu({ setIsLoggedIn, userEmail }) {
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get student ID from session
+  // Get user ID from session
   const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
-  const studentId = sessionData.studentId;
+  const userId = sessionData.userId;
 
   // Fetch Assignments
   useEffect(() => {
-    const url = studentId 
-      ? `http://localhost:5000/api/assignments?student_id=${studentId}`
+    const url = userId 
+      ? `http://localhost:5000/api/assignments?user_id=${userId}`
       : "http://localhost:5000/api/assignments";
       
     fetch(url)

@@ -3,12 +3,9 @@ from fastapi.responses import JSONResponse
 from psycopg2.extras import RealDictCursor
 from database import get_db_connection
 
-router = APIRouter(
-    prefix="/api/admin",
-    tags=["statistics"]
-)
+router = APIRouter()
 
-@router.get("/stats")
+@router.get("/api/admin/stats")
 async def get_admin_stats():
     conn = get_db_connection()
     if not conn:

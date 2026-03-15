@@ -41,7 +41,7 @@ async def google_auth(request: Request):
                 cur = conn.cursor(cursor_factory=RealDictCursor)
 
                 # Check if user exists
-                cur.execute("SELECT student_id, name, surname, email, role FROM users WHERE email = %s", (email,))
+                cur.execute("SELECT user_id, name, surname, email, role FROM users WHERE email = %s", (email,))
                 user_data = cur.fetchone()
 
                 if user_data:
@@ -52,7 +52,7 @@ async def google_auth(request: Request):
                     return JSONResponse({
                         "success": True,
                         "user_exists": True,
-                        "student_id": user_data['student_id'],
+                        "user_id": user_data['user_id'],
                         "name": user_data['name'],
                         "surname": user_data['surname'],
                         "email": user_data['email'],
@@ -90,15 +90,15 @@ async def complete_registration(request: Request):
     except Exception:
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
-    student_id = data.get("student_id")
+    user_id = data.get("user_id")
     name = data.get("name")
     surname = data.get("surname")
     email = data.get("email")
     role = data.get("role", "student")
 
     # Validation
-    if not all([student_id, name, surname, email]):
-        return JSONResponse({"error": "All fields are required: student_id, name, surname, email"}, status_code=400)
+    if not all([user_id, name, surname, email]):
+        return JSONResponse({"error": "All fields are required: user_id, name, surname, email"}, status_code=400)
 
     # Validate role
     valid_roles = ["student", "teacher", "admin"]
@@ -112,8 +112,8 @@ async def complete_registration(request: Request):
     try:
         cur = conn.cursor()
 
-        # Check if student_id or email already exists
-        cur.execute("SELECT student_id FROM users WHERE student_id = %s OR email = %s", (student_id, email))
+        # Check if user_id or email already exists
+        cur.execute("SELECT user_id FROM users WHERE user_id = %s OR email = %s", (user_id, email))
         existing = cur.fetchone()
 
         if existing:
@@ -123,10 +123,10 @@ async def complete_registration(request: Request):
 
         # Insert new user
         cur.execute("""
-            INSERT INTO users (student_id, name, surname, email, role)
+            INSERT INTO users (user_id, name, surname, email, role)
             VALUES (%s, %s, %s, %s, %s)
-            RETURNING student_id, name, surname, email, role
-        """, (student_id, name, surname, email, role))
+            RETURNING user_id, name, surname, email, role
+        """, (user_id, name, surname, email, role))
 
         new_user = cur.fetchone()
         conn.commit()
@@ -138,7 +138,7 @@ async def complete_registration(request: Request):
             "success": True,
             "message": "Registration completed successfully",
             "user": {
-                "student_id": new_user[0],
+                "user_id": new_user[0],
                 "name": new_user[1],
                 "surname": new_user[2],
                 "email": new_user[3],

@@ -11,19 +11,19 @@ export default function AssignmentDetail() {
   const [isPastDue, setIsPastDue] = useState(false);
   const timerRef = useRef(null);
 
-  // Get student ID from session
+  // Get user ID from session
   const sessionData = JSON.parse(localStorage.getItem("session") || "{}");
-  const studentId = sessionData.studentId;
+  const userId = sessionData.userId;
 
   useEffect(() => {
     if (!assignmentId) return;
 
-    const assignUrl = studentId 
-      ? `http://localhost:5000/api/assignments/${assignmentId}?student_id=${studentId}`
+    const assignUrl = userId 
+      ? `http://localhost:5000/api/assignments/${assignmentId}?user_id=${userId}`
       : `http://localhost:5000/api/assignments/${assignmentId}`;
       
-    const exercisesUrl = studentId
-      ? `http://localhost:5000/api/assignments/${assignmentId}/exercises?student_id=${studentId}`
+    const exercisesUrl = userId
+      ? `http://localhost:5000/api/assignments/${assignmentId}/exercises?user_id=${userId}`
       : `http://localhost:5000/api/assignments/${assignmentId}/exercises`;
 
     // Fetch Assignment Info

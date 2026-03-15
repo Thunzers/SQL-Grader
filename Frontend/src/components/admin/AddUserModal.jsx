@@ -2,7 +2,7 @@ import { useState } from "react";
 import { UserPlus, X } from "lucide-react";
 
 export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "admin" }) {
-    const [newStudentId, setNewStudentId] = useState("");
+    const [newUserId, setNewUserId] = useState("");
     const [newName, setNewName] = useState("");
     const [newSurname, setNewSurname] = useState("");
     const [newUserEmail, setNewUserEmail] = useState("");
@@ -13,7 +13,7 @@ export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "adm
     const handleAddSingleUser = async (e) => {
         e.preventDefault();
 
-        if (!newStudentId.trim() || !newName.trim() || !newSurname.trim() || !newUserEmail.trim()) {
+        if (!newUserId.trim() || !newName.trim() || !newSurname.trim() || !newUserEmail.trim()) {
             alert("กรุณากรอกข้อมูลให้ครบทุกช่อง");
             return;
         }
@@ -27,7 +27,7 @@ export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "adm
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    student_id: newStudentId.trim(),
+                    user_id: newUserId.trim(),
                     name: newName.trim(),
                     surname: newSurname.trim(),
                     email: newUserEmail.trim(),
@@ -39,7 +39,7 @@ export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "adm
 
             if (response.ok) {
                 alert("เพิ่มผู้ใช้สำเร็จ!");
-                setNewStudentId("");
+                setNewUserId("");
                 setNewName("");
                 setNewSurname("");
                 setNewUserEmail("");
@@ -77,12 +77,12 @@ export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "adm
                 <form onSubmit={handleAddSingleUser} className="p-6">
                     <div className="mb-4">
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            รหัสนักศึกษา <span className="text-red-500">*</span>
+                            รหัสนักศึกษา / User ID <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
-                            value={newStudentId}
-                            onChange={(e) => setNewStudentId(e.target.value)}
+                            value={newUserId}
+                            onChange={(e) => setNewUserId(e.target.value)}
                             placeholder="6512345678"
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                             required

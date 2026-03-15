@@ -43,9 +43,9 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin" })
     }, [isOpen]);
 
     // Change Role
-    const handleRoleChange = async (studentId, newRole) => {
+    const handleRoleChange = async (userId, newRole) => {
         try {
-            const response = await fetch(`http://localhost:5000/api/users/${studentId}/role`, {
+            const response = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -55,7 +55,7 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin" })
 
             if (response.ok) {
                 setUsers(users.map(user =>
-                    user.student_id === studentId ? { ...user, role: newRole } : user
+                    user.user_id === userId ? { ...user, role: newRole } : user
                 ));
                 alert("เปลี่ยน Role สำเร็จ!");
             } else {
@@ -74,7 +74,7 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin" })
         setDeleting(true);
 
         try {
-            const response = await fetch(`http://localhost:5000/api/users/${userToDelete.student_id}`, {
+            const response = await fetch(`http://localhost:5000/api/users/${userToDelete.user_id}`, {
                 method: 'DELETE',
             });
 
@@ -134,7 +134,7 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin" })
                         <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 bg-white shadow-sm z-10">
                                 <tr className="bg-gray-100 border-b">
-                                    <th className="p-3 font-semibold text-gray-700">Student ID</th>
+                                    <th className="p-3 font-semibold text-gray-700">User ID / Student ID</th>
                                     <th className="p-3 font-semibold text-gray-700">Name</th>
                                     <th className="p-3 font-semibold text-gray-700">Surname</th>
                                     <th className="p-3 font-semibold text-gray-700">Email</th>
@@ -149,8 +149,8 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin" })
                             </thead>
                             <tbody>
                                 {users.map((user) => (
-                                    <tr key={user.student_id} className="border-b hover:bg-gray-50">
-                                        <td className="p-3 text-gray-600 font-mono">{user.student_id}</td>
+                                    <tr key={user.user_id} className="border-b hover:bg-gray-50">
+                                        <td className="p-3 text-gray-600 font-mono">{user.user_id}</td>
                                         <td className="p-3">{user.name}</td>
                                         <td className="p-3">{user.surname}</td>
                                         <td className="p-3 text-sm">{user.email}</td>
@@ -167,7 +167,7 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin" })
                                                 <td className="p-3">
                                                     <select
                                                         value={user.role}
-                                                        onChange={(e) => handleRoleChange(user.student_id, e.target.value)}
+                                                        onChange={(e) => handleRoleChange(user.user_id, e.target.value)}
                                                         className="border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                                                     >
                                                         <option value="student">Student</option>
@@ -212,7 +212,7 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin" })
             <ConfirmModal
                 config={showDeleteConfirm ? {
                     title: "ยืนยันการลบผู้ใช้",
-                    message: `คุณต้องการลบผู้ใช้ ${showDeleteConfirm.name} ${showDeleteConfirm.surname} (${showDeleteConfirm.student_id}) หรือไม่?`,
+                    message: `คุณต้องการลบผู้ใช้ ${showDeleteConfirm.name} ${showDeleteConfirm.surname} (${showDeleteConfirm.user_id}) หรือไม่?`,
                     type: "danger",
                     confirmText: deleting ? "กำลังลบ..." : "ลบผู้ใช้",
                     cancelText: "ยกเลิก",

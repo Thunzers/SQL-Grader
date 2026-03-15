@@ -10,7 +10,7 @@ router = APIRouter()
 
 # Get exercises for an assignment
 @router.get("/api/assignments/{assign_id}/exercises")
-def get_exercises(assign_id: int, student_id: str = None):
+def get_exercises(assign_id: int, user_id: str = None):
     conn = get_db_connection()
     if not conn:
         return JSONResponse({"error": "Database connection failed"}, status_code=500)
@@ -18,7 +18,7 @@ def get_exercises(assign_id: int, student_id: str = None):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        if student_id:
+        if user_id:
             cur.execute("""
                 SELECT e.*, d.name as dataset_name,
                        COALESCE(sub.user_score, 0) as user_score,
@@ -32,12 +32,12 @@ def get_exercises(assign_id: int, student_id: str = None):
                 LEFT JOIN (
                     SELECT exercise_id, MAX(total_score) as user_score, bool_or(is_correct) as is_correct
                     FROM submissions
-                    WHERE student_id = %s
+                    WHERE user_id = %s
                     GROUP BY exercise_id
                 ) sub ON e.exercise_id = sub.exercise_id
                 WHERE e.assign_id = %s
                 ORDER BY e.order_num ASC, e.exercise_id ASC
-            """, (student_id, assign_id))
+            """, (user_id, assign_id))
         else:
             cur.execute("""
                 SELECT e.*, d.name as dataset_name
@@ -526,11 +526,11 @@ async def run_exercise_test(exercise_id: int, request: Request):
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
     query = data.get("query")
-    student_id = data.get("student_id")
+    user_id = data.get("user_id")
     if not query:
         return JSONResponse({"error": "query is required"}, status_code=400)
-    if not student_id:
-        return JSONResponse({"error": "student_id is required"}, status_code=400)
+    if not user_id:
+        return JSONResponse({"error": "user_id is required"}, status_code=400)
 
     conn = get_db_connection()
     if not conn:
@@ -575,8 +575,8 @@ async def run_exercise_test(exercise_id: int, request: Request):
         schema_sql = exercise.get("schema_sql") or ""
         seed_sql = exercise.get("seed_data_sql") or ""
 
-        # Use persistent sandbox named after student and exercise
-        sandbox_name = f"sandbox_stu{student_id}_ex{exercise_id}"
+        # Use persistent sandbox named after user and exercise
+        sandbox_name = f"sandbox_stu{user_id}_ex{exercise_id}"
 
         # Run student's query
         from utils import execute_query_on_persistent_sandbox
@@ -695,12 +695,12 @@ async def submit_exercise(exercise_id: int, request: Request):
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
     query = data.get("query")
-    student_id = data.get("student_id")
+    user_id = data.get("user_id")
 
     if not query:
         return JSONResponse({"error": "query is required"}, status_code=400)
-    if not student_id:
-        return JSONResponse({"error": "student_id is required"}, status_code=400)
+    if not user_id:
+        return JSONResponse({"error": "user_id is required"}, status_code=400)
 
     conn = get_db_connection()
     if not conn:
@@ -748,7 +748,7 @@ async def submit_exercise(exercise_id: int, request: Request):
         seed_sql = exercise.get("seed_data_sql") or ""
 
         # Run student's query on persistent sandbox
-        sandbox_name = f"sandbox_stu{student_id}_ex{exercise_id}"
+        sandbox_name = f"sandbox_stu{user_id}_ex{exercise_id}"
         from utils import execute_query_on_persistent_sandbox, drop_persistent_sandbox
         student_result = execute_query_on_persistent_sandbox(sandbox_name, schema_sql, seed_sql, query)
 
@@ -767,10 +767,10 @@ async def submit_exercise(exercise_id: int, request: Request):
             }
 
             cur.execute("""
-                INSERT INTO submissions (exercise_id, student_id, submitted_query, is_correct, total_score, max_score, error_message, results)
+                INSERT INTO submissions (exercise_id, user_id, submitted_query, is_correct, total_score, max_score, error_message, results)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING submit_id, submitted_at
-            """, (exercise_id, student_id, query, False, 0, submission_result["max_score"], student_result["error"], json.dumps(submission_result)))
+            """, (exercise_id, user_id, query, False, 0, submission_result["max_score"], student_result["error"], json.dumps(submission_result)))
 
             submission = cur.fetchone()
             conn.commit()
@@ -807,10 +807,10 @@ async def submit_exercise(exercise_id: int, request: Request):
         }
 
         cur.execute("""
-            INSERT INTO submissions (exercise_id, student_id, submitted_query, is_correct, total_score, max_score, results)
+            INSERT INTO submissions (exercise_id, user_id, submitted_query, is_correct, total_score, max_score, results)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING submit_id, submitted_at
-        """, (exercise_id, student_id, query, all_passed, total_score, max_score, json.dumps(submission_result)))
+        """, (exercise_id, user_id, query, all_passed, total_score, max_score, json.dumps(submission_result)))
 
         submission = cur.fetchone()
         conn.commit()
@@ -841,11 +841,11 @@ async def reset_exercise_sandbox(exercise_id: int, request: Request):
     except Exception:
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
-    student_id = data.get("student_id")
-    if not student_id:
-        return JSONResponse({"error": "student_id is required"}, status_code=400)
-
-    sandbox_name = f"sandbox_stu{student_id}_ex{exercise_id}"
+    user_id = data.get("user_id")
+    if not user_id:
+        return JSONResponse({"error": "user_id is required"}, status_code=400)
+    
+    sandbox_name = f"sandbox_stu{user_id}_ex{exercise_id}"
     from utils import drop_persistent_sandbox
     
     success = drop_persistent_sandbox(sandbox_name)

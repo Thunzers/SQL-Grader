@@ -25,19 +25,19 @@ export default function App() {
     const saved = localStorage.getItem("session");
     return saved ? JSON.parse(saved).role : "";
   });
-  const [studentId, setStudentId] = useState(() => {
+  const [userId, setUserId] = useState(() => {
     const saved = localStorage.getItem("session");
-    return saved ? (JSON.parse(saved).studentId || localStorage.getItem("student_id") || "") : "";
+    return saved ? (JSON.parse(saved).userId || localStorage.getItem("user_id") || "") : "";
   });
 
   // Save session to localStorage whenever it changes
   useEffect(() => {
     if (isLoggedIn) {
-      localStorage.setItem("session", JSON.stringify({ isLoggedIn, userEmail, role, studentId }));
+      localStorage.setItem("session", JSON.stringify({ isLoggedIn, userEmail, role, userId }));
     } else {
       localStorage.removeItem("session");
     }
-  }, [isLoggedIn, userEmail, role, studentId]);
+  }, [isLoggedIn, userEmail, role, userId]);
 
   // Sync role with backend on mount/refresh
   useEffect(() => {
@@ -62,10 +62,10 @@ export default function App() {
     fetchProfile();
   }, [isLoggedIn, userEmail]);
 
-  function handleLoginSuccess(email, userRole, sId) {
+  function handleLoginSuccess(email, userRole, uId) {
     setUserEmail(email);
     setRole(userRole);
-    setStudentId(sId);
+    setUserId(uId);
     setIsLoggedIn(true);
 
     // Redirect based on role
@@ -77,7 +77,7 @@ export default function App() {
   function handleLogout() {
     setUserEmail("");
     setRole("");
-    setStudentId("");
+    setUserId("");
     setIsLoggedIn(false);
     navigate("/login");
   }
@@ -134,7 +134,7 @@ export default function App() {
       {/* Teacher Routes */}
       <Route path="/teacher" element={
         <ProtectedRoute allowedRole="teacher">
-          <TeacherDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} studentId={studentId} />
+          <TeacherDashboard setIsLoggedIn={handleLogout} userEmail={userEmail} userId={userId} />
         </ProtectedRoute>
       } />
 

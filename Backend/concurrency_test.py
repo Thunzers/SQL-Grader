@@ -5,13 +5,13 @@ import uuid
 
 API_URL = "http://localhost:5000/api/run-sql"
 
-def run_student_session(student_id):
+def run_student_session(user_id):
     """
     Simulates a student running code.
     Each student gets their own isolated DB execution on the server.
     """
     # Unique data for this student to verify isolation
-    unique_val = int(student_id.split('-')[1]) 
+    unique_val = int(user_id.split('-')[1]) 
     
     payload = {
         "schema_sql": "CREATE TABLE user_data (id INT, val VARCHAR(50));",
@@ -45,14 +45,14 @@ def main():
     print("Simulating 10 students running code EXACTLY at the same time...")
     
     # Generate 10 fake student IDs
-    student_ids = [f"std-{i+1000}" for i in range(10)]
+    user_ids = [f"std-{i+1000}" for i in range(10)]
     
     start_all = time.time()
     
     # Run in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         # Submit all tasks
-        future_to_student = {executor.submit(run_student_session, sid): sid for sid in student_ids}
+        future_to_student = {executor.submit(run_student_session, sid): sid for sid in user_ids}
         
         print("\n--- Real-time Results ---")
         completed_count = 0

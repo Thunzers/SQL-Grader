@@ -43,7 +43,7 @@ def get_categories():
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.get("/api/assignments")
-def get_assignments(category: str = None, student_id: str = None):
+def get_assignments(category: str = None, user_id: str = None):
     conn = get_db_connection()
     if not conn:
         return JSONResponse({"error": "Database connection failed"}, status_code=500)
@@ -65,8 +65,8 @@ def get_assignments(category: str = None, student_id: str = None):
             )
         """
         
-        # If student_id is provided, calculate their progress
-        if student_id:
+        # If user_id is provided, calculate their progress
+        if user_id:
             query = cte_sql + """
             SELECT ai.*,
                    COALESCE(sub.user_score, 0) as user_score,
@@ -81,7 +81,7 @@ def get_assignments(category: str = None, student_id: str = None):
                     -- Get highest score per exercise for this student
                     SELECT exercise_id, MAX(total_score) as total_score, bool_or(is_correct) as is_correct
                     FROM submissions
-                    WHERE student_id = %s
+                    WHERE user_id = %s
                     GROUP BY exercise_id
                 ) s
                 JOIN exercises e ON s.exercise_id = e.exercise_id
@@ -95,7 +95,7 @@ def get_assignments(category: str = None, student_id: str = None):
             category_filter = "AND a.category = %s" if category else ""
             query = query.format(category_filter=category_filter)
             
-            params = [student_id]
+            params = [user_id]
             if category:
                 params.insert(0, category)
                 
@@ -124,15 +124,15 @@ def get_assignments(category: str = None, student_id: str = None):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.get("/api/assignments/{assign_id}")
-def get_assignment(assign_id: int, student_id: str = None):
+def get_assignment(assign_id: int, user_id: str = None):
     conn = get_db_connection()
     if not conn:
         return JSONResponse({"error": "Database connection failed"}, status_code=500)
 
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        if student_id:
+
+        if user_id:
             cur.execute("""
                 WITH AssignInfo AS (
                     SELECT a.*,
@@ -155,14 +155,14 @@ def get_assignment(assign_id: int, student_id: str = None):
                     FROM (
                         SELECT exercise_id, MAX(total_score) as total_score, bool_or(is_correct) as is_correct
                         FROM submissions
-                        WHERE student_id = %s
+                        WHERE user_id = %s
                         GROUP BY exercise_id
                     ) s
                     JOIN exercises e ON s.exercise_id = e.exercise_id
                     WHERE s.total_score > 0 OR s.is_correct = TRUE
                     GROUP BY e.assign_id
                 ) sub ON ai.assign_id = sub.assign_id
-            """, (assign_id, student_id))
+            """, (assign_id, user_id))
         else:
             cur.execute("""
                 SELECT a.*,
@@ -213,7 +213,7 @@ def get_assignment_student_progress(assign_id: int):
         # Get students and their progress for this assignment
         cur.execute("""
             SELECT 
-                u.student_id,
+                u.user_id,
                 u.name as student_name,
                 u.email,
                 COALESCE(sub.user_score, 0) as user_score,
@@ -224,28 +224,28 @@ def get_assignment_student_progress(assign_id: int):
             FROM users u
             LEFT JOIN (
                 SELECT 
-                    s.student_id,
-                    SUM(s.total_score) as user_score,
+                    s.user_id,
+                    SUM(s.user_score) as user_score,
                     COUNT(s.exercise_id) as completed_exercises,
                     MAX(s.last_submission_at) as last_submission_time
                 FROM (
                     -- Get highest score and latest submission per exercise per student
                     SELECT 
-                        subm.student_id, 
+                        subm.user_id, 
                         subm.exercise_id, 
                         MAX(subm.total_score) as total_score,
                         MAX(subm.submitted_at) as last_submission_at
                     FROM submissions subm
                     JOIN exercises ex ON subm.exercise_id = ex.exercise_id
                     WHERE ex.assign_id = %s
-                    GROUP BY subm.student_id, subm.exercise_id
+                    GROUP BY subm.user_id, subm.exercise_id
                 ) s
                 -- Only count >0 scores as completed
                 WHERE s.total_score > 0
-                GROUP BY s.student_id
-            ) sub ON u.student_id = sub.student_id
+                GROUP BY s.user_id
+            ) sub ON u.user_id = sub.user_id
             WHERE u.role = 'student'
-            ORDER BY sub.user_score DESC NULLS LAST, sub.completed_exercises DESC NULLS LAST, u.student_id ASC
+            ORDER BY sub.user_score DESC NULLS LAST, sub.completed_exercises DESC NULLS LAST, u.user_id ASC
         """, (assignment_stats['total_exercises'], assignment_stats['max_score'], assign_id))
         
         progress = cur.fetchall()

@@ -11,7 +11,7 @@ import UserManagementModal from "./admin/UserManagementModal";
 
 const API_BASE = "http://localhost:5000";
 
-export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }) {
+export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
   const [openProfile, setOpenProfile] = useState(false);
   const [activeTab, setActiveTab] = useState("assignments"); // assignments, datasets
 
@@ -180,7 +180,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
         setCategories(data);
       }
     } catch (error) {
-      setCategories(["SELECT", "JOIN", "GROUP BY", "Subquery", "DDL", "DML"]);
+      setCategories(["SELECT", "JOIN", "GROUP BY", "Subquery"]);
     }
   };
 
@@ -243,7 +243,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
           ...assignmentForm,
           start_date: assignmentForm.start_date || null,
           due_date: assignmentForm.due_date || null,
-          created_by: studentId
+          created_by: userId
         })
       });
 
@@ -449,7 +449,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...datasetForm, created_by: studentId })
+        body: JSON.stringify({ ...datasetForm, created_by: userId })
       });
 
       const data = await res.json();
@@ -989,7 +989,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                             <thead className="bg-gray-50 border-b border-gray-200">
                               <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-12">No.</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">รหัสนักศึกษา</th>
+                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">User ID / รหัสนักศึกษา</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">ชื่อ-สกุล</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">โจทย์ที่เสร็จแล้ว</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">คะแนนรวม</th>
@@ -1003,9 +1003,9 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                                   : 0;
                                   
                                 return (
-                                  <tr key={student.student_id || idx} className="hover:bg-gray-50 transition">
+                                  <tr key={student.user_id || idx} className="hover:bg-gray-50 transition">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{idx + 1}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">{student.student_id || "-"}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">{student.user_id || "-"}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.student_name || student.email}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                       <div className="flex items-center gap-2">
@@ -1132,7 +1132,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, studentId }
                   {categories.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
-                  <option value="SELECT">SELECT</option>
                   <option value="JOIN">JOIN</option>
                   <option value="GROUP BY">GROUP BY</option>
                   <option value="Subquery">Subquery</option>

@@ -76,7 +76,7 @@ export default function BulkUploadModal({ isOpen, onClose, onUploadComplete, mod
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                         <h3 className="font-semibold text-blue-900 mb-2">คำแนะนำ:</h3>
                         <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
-                            <li>ไฟล์ Excel/CSV ต้องมีคอลัมน์ <strong>student_id, name, surname, email</strong> (จำเป็น)</li>
+                            <li>ไฟล์ Excel/CSV ต้องมีคอลัมน์ <strong>user_id, name, surname, email</strong> (จำเป็น)</li>
                             {mode === 'admin' ? (
                                 <>
                                     <li>คอลัมน์ <strong>role</strong> (ไม่บังคับ) - ถ้าไม่ระบุจะเป็น student</li>
@@ -85,7 +85,7 @@ export default function BulkUploadModal({ isOpen, onClose, onUploadComplete, mod
                             ) : (
                                 <li><strong>หมายเหตุ:</strong> ทุกบัญชีที่เพิ่มจะถูกกำหนดให้เป็น <strong>Student</strong> ทันที</li>
                             )}
-                            <li>รหัสนักศึกษาหรืออีเมลที่มีอยู่แล้วในระบบจะถูกข้าม</li>
+                            <li>รหัสนักศึกษา / User ID หรืออีเมลที่มีอยู่แล้วในระบบจะถูกข้าม</li>
                         </ul>
                     </div>
 
