@@ -1195,12 +1195,13 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                   onChange={(e) => setAssignmentForm({ ...assignmentForm, category: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
                 >
-                  {categories.map((cat) => (
+                  {Array.from(new Set([
+                    ...categories, 
+                    assignmentForm.category, 
+                    editingAssignment?.category
+                  ])).filter(Boolean).map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
-                  <option value="JOIN">JOIN</option>
-                  <option value="GROUP BY">GROUP BY</option>
-                  <option value="Subquery">Subquery</option>
                 </select>
               </div>
 

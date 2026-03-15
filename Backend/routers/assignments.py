@@ -36,7 +36,7 @@ def get_categories():
 
         # Add default categories if empty
         if not categories:
-            categories = ["SELECT", "JOIN", "GROUP BY", "Subquery", "DDL", "DML"]
+            categories = ["SELECT", "JOIN", "GROUP BY", "SUBQUERY","WHERE"]
 
         return JSONResponse(categories, status_code=200)
     except Exception as e:

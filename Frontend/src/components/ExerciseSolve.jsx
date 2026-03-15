@@ -36,6 +36,7 @@ export default function ExerciseSolve({ userId }) {
   const [showProblemList, setShowProblemList] = useState(false);
   const [assignmentExercises, setAssignmentExercises] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
+  const lastLoadedExId = useRef(null);
 
   // Fetch Exercise Detail
   useEffect(() => {
@@ -109,6 +110,32 @@ export default function ExerciseSolve({ userId }) {
       if (dueTimerRef.current) clearInterval(dueTimerRef.current);
     };
   }, [exercise]);
+
+  // --- Draft Persistence Logic ---
+  
+  // Load & Save Drafts combined to handle transitions correctly
+  useEffect(() => {
+    if (!exerciseId) return;
+
+    const uId = userId || localStorage.getItem("user_id") || "guest";
+    const storageKey = `sql_draft_${uId}_${exerciseId}`;
+
+    if (lastLoadedExId.current !== exerciseId) {
+      // Transition: LOAD draft from storage
+      const savedDraft = localStorage.getItem(storageKey);
+      if (savedDraft !== null) {
+        setQuery(savedDraft);
+      } else {
+        setQuery("-- Write your SQL query here\n");
+      }
+      lastLoadedExId.current = exerciseId;
+    } else {
+      // Update: SAVE draft to storage (only if it's not null)
+      if (query !== null) {
+        localStorage.setItem(storageKey, query);
+      }
+    }
+  }, [exerciseId, query, userId]);
 
   // Keyboard shortcut: Ctrl+Enter to Run
   useEffect(() => {
@@ -233,7 +260,10 @@ export default function ExerciseSolve({ userId }) {
             const data = await response.json();
             setError(data.error || "Failed to reset sandbox");
           } else {
-            // Optional: Show a brief success message
+            // Clear draft on successful reset
+            const storageKey = `sql_draft_${uId}_${exerciseId}`;
+            localStorage.removeItem(storageKey);
+            setQuery("-- Write your SQL query here\n");
             setOutputOpen(false);
           }
         } catch (err) {
@@ -281,6 +311,12 @@ export default function ExerciseSolve({ userId }) {
             setOutputTab("testcases");
             setSubmitResult(data);
             setShowResultModal(true);
+
+            // Clear draft on successful submission
+            if (data.is_correct) {
+              const storageKey = `sql_draft_${uId}_${exerciseId}`;
+              localStorage.removeItem(storageKey);
+            }
           }
         } catch (err) {
           setError("Network error: " + err.message);
@@ -322,7 +358,7 @@ export default function ExerciseSolve({ userId }) {
       <nav className="flex-shrink-0 bg-[#00796b] text-white px-4 py-2 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => exercise?.assign_id ? navigate(`/assignment/${exercise.assign_id}`) : navigate('/student')}
             className="flex items-center gap-1.5 text-white/80 hover:text-white px-2 py-1.5 rounded-lg hover:bg-white/10 transition-all text-sm"
           >
             <ArrowLeft size={16} />
