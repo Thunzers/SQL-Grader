@@ -200,8 +200,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
         category: assignment.category || "",
         title: assignment.title || "",
         description: assignment.description || "",
-        start_date: assignment.start_date ? assignment.start_date.split("T")[0] : "",
-        due_date: assignment.due_date ? assignment.due_date.split("T")[0] : "",
+        start_date: assignment.start_date ? assignment.start_date.substring(0, 16) : "",
+        due_date: assignment.due_date ? assignment.due_date.substring(0, 16) : "",
         max_attempts: assignment.max_attempts || 0,
         is_active: assignment.is_active !== false
       });
@@ -1165,9 +1165,18 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    <Calendar size={14} className="inline mr-1" /> วันเริ่มต้น
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-gray-700">
+                      <Calendar size={14} className="inline mr-1" /> วันเริ่มต้น
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setAssignmentForm({ ...assignmentForm, start_date: "" })}
+                      className="text-xs text-red-500 hover:text-red-700 font-medium"
+                    >
+                      ไม่กำหนด
+                    </button>
+                  </div>
                   <input
                     type="datetime-local"
                     value={assignmentForm.start_date}
@@ -1176,9 +1185,18 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    <Calendar size={14} className="inline mr-1" /> วันหมดเขต
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-gray-700">
+                      <Calendar size={14} className="inline mr-1" /> วันหมดเขต
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setAssignmentForm({ ...assignmentForm, due_date: "" })}
+                      className="text-xs text-red-500 hover:text-red-700 font-medium"
+                    >
+                      ไม่กำหนด
+                    </button>
+                  </div>
                   <input
                     type="datetime-local"
                     value={assignmentForm.due_date}

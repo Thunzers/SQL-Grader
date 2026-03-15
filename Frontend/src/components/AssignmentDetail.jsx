@@ -201,7 +201,9 @@ export default function AssignmentDetail() {
                 {exercises.map((exercise, index) => (
                   <tr
                     key={exercise.exercise_id}
-                    className="hover:bg-gray-50 transition"
+                    className={`transition ${
+                      isPastDue ? "bg-gray-50 opacity-60" : "hover:bg-gray-50"
+                    }`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusIcon(exercise.status)}
