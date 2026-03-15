@@ -59,7 +59,8 @@ def get_assignments(category: str = None, user_id: str = None):
                        COALESCE(SUM(e.points), 0) as max_score
                 FROM assignments a
                 LEFT JOIN exercises e ON a.assign_id = e.assign_id
-                WHERE a.is_active = TRUE
+                WHERE 1=1
+                {active_filter}
                 {category_filter}
                 GROUP BY a.assign_id
             )
@@ -93,7 +94,7 @@ def get_assignments(category: str = None, user_id: str = None):
             """
             
             category_filter = "AND a.category = %s" if category else ""
-            query = query.format(category_filter=category_filter)
+            query = query.format(active_filter="AND a.is_active = TRUE", category_filter=category_filter)
             
             params = [user_id]
             if category:
@@ -107,7 +108,7 @@ def get_assignments(category: str = None, user_id: str = None):
             """
             
             category_filter = "AND a.category = %s" if category else ""
-            query = query.format(category_filter=category_filter)
+            query = query.format(active_filter="", category_filter=category_filter)
             
             if category:
                 cur.execute(query, (category,))
@@ -140,7 +141,7 @@ def get_assignment(assign_id: int, user_id: str = None):
                            COALESCE(SUM(e.points), 0) as max_score
                     FROM assignments a
                     LEFT JOIN exercises e ON a.assign_id = e.assign_id
-                    WHERE a.assign_id = %s
+                    WHERE a.assign_id = %s AND a.is_active = TRUE
                     GROUP BY a.assign_id
                 )
                 SELECT ai.*,

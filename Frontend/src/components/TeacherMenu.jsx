@@ -3,7 +3,7 @@ import {
   ChevronDown, LogOut, User, FilePlus, Users, ClipboardList,
   X, Save, Plus, Trash2, Edit3, BookOpen, Database, ChevronRight,
   Calendar, Target, FileText, Play, CheckCircle, XCircle, Loader2,
-  Tag, Key
+  Tag, Key, EyeOff
 } from "lucide-react";
 import Notification from "./Notification";
 import ConfirmModal from "./ConfirmModal";
@@ -856,7 +856,14 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
                             {a.category}
                           </span>
-                          <h3 className="font-semibold text-gray-800 mt-1">{a.title}</h3>
+                          <h3 className="font-semibold text-gray-800 mt-1">
+                            {a.title}
+                            {!a.is_active && (
+                              <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                <EyeOff size={10} /> ซ่อนอยู่
+                              </span>
+                            )}
+                          </h3>
                           <p className="text-sm text-gray-500">{a.exercise_count || 0} ข้อ</p>
                         </div>
                         <ChevronRight size={20} className="text-gray-400" />
@@ -876,8 +883,13 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
                         {selectedAssignment.category}
                       </span>
-                      <h2 className="text-xl font-bold text-gray-800 mt-1">
+                      <h2 className="text-xl font-bold text-gray-800 mt-1 flex items-center gap-2">
                         {selectedAssignment.title}
+                        {!selectedAssignment.is_active && (
+                          <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full flex items-center gap-1 font-medium">
+                            <EyeOff size={12} /> ซ่อนอยู่
+                          </span>
+                        )}
                       </h2>
                       {selectedAssignment.description && (
                         <p className="text-sm text-gray-500 mt-1">{selectedAssignment.description}</p>
@@ -1276,7 +1288,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                       onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
                       className="w-4 h-4 text-teal-600 rounded"
                     />
-                    <span className="text-sm font-semibold text-gray-700">เปิดใช้งาน</span>
+                    <span className="text-sm font-semibold text-gray-700">เปิดให้นักศึกษาเห็น</span>
                   </label>
                 </div>
               </div>
