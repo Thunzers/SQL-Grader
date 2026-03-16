@@ -24,10 +24,9 @@ def run_sql_on_sandbox(schema_sql: str, seed_sql: str, query: str):
     """
     Run SQL query on a temporary sandbox and return results
     """
-    # Create unique sandbox database name
+    # สร้าง sandbox database ที่มีชื่อเฉพาะ 
     sandbox_name = f"sandbox_{uuid.uuid4().hex[:8]}"
 
-    # Connect to postgres to create sandbox DB
     conn = get_db_connection()
     if not conn:
         return {"error": "Database connection failed"}
@@ -36,12 +35,12 @@ def run_sql_on_sandbox(schema_sql: str, seed_sql: str, query: str):
         conn.autocommit = True
         cur = conn.cursor()
 
-        # Create sandbox database (Check security/injection risks in production!)
+        # สร้าง sandbox database
         cur.execute(f'CREATE DATABASE "{sandbox_name}"')
         cur.close()
         conn.close()
 
-        # Connect to sandbox
+        # เชื่อมต่อ sandbox
         sandbox_conn = psycopg2.connect(
             host=DB_HOST, database=sandbox_name, user=DB_USER, password=DB_PASS, port=DB_PORT
         )
@@ -57,10 +56,9 @@ def run_sql_on_sandbox(schema_sql: str, seed_sql: str, query: str):
             sandbox_cur.execute(seed_sql)
             sandbox_conn.commit()
 
-        # Run the query
+        # Run query
         sandbox_cur.execute(query)
 
-        # Check if the query returns data (e.g., SELECT) or not (e.g., CREATE, INSERT)
         if sandbox_cur.description:
             # Get column names
             columns = [desc[0] for desc in sandbox_cur.description]
@@ -68,7 +66,7 @@ def run_sql_on_sandbox(schema_sql: str, seed_sql: str, query: str):
             # Get rows
             rows = sandbox_cur.fetchall()
         else:
-            # Query like CREATE TABLE or INSERT that doesn't return rows
+
             columns = ["Message"]
             rows = [("Executed successfully.",)]
 
@@ -106,7 +104,7 @@ def run_sql_on_sandbox(schema_sql: str, seed_sql: str, query: str):
             cleanup_conn.autocommit = True
             cleanup_cur = cleanup_conn.cursor()
 
-            # Terminate connections to sandbox
+            # สั่งปิด connection ของ sandbox
             cleanup_cur.execute(f"""
                 SELECT pg_terminate_backend(pid)
                 FROM pg_stat_activity
@@ -136,25 +134,25 @@ def execute_query_on_persistent_sandbox(sandbox_name: str, schema_sql: str, seed
         conn.autocommit = True
         cur = conn.cursor()
 
-        # Check if database exists
+
         cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (sandbox_name,))
         exists = cur.fetchone()
 
         if not exists:
-            # Create sandbox database
+
             cur.execute(f'CREATE DATABASE "{sandbox_name}"')
             db_created = True
 
         cur.close()
         conn.close()
 
-        # Connect to sandbox
+
         sandbox_conn = psycopg2.connect(
             host=DB_HOST, database=sandbox_name, user=DB_USER, password=DB_PASS, port=DB_PORT
         )
         sandbox_cur = sandbox_conn.cursor()
 
-        # Only run schema and seed if we just created the DB
+
         if db_created:
             if schema_sql:
                 sandbox_cur.execute(schema_sql)
@@ -164,11 +162,11 @@ def execute_query_on_persistent_sandbox(sandbox_name: str, schema_sql: str, seed
                 sandbox_cur.execute(seed_sql)
                 sandbox_conn.commit()
 
-        # Run the query
+        
         sandbox_cur.execute(query)
         sandbox_conn.commit()
 
-        # Check if the query returns data (e.g., SELECT) or not (e.g., CREATE, INSERT)
+        
         if sandbox_cur.description:
             columns = [desc[0] for desc in sandbox_cur.description]
             rows = sandbox_cur.fetchall()
@@ -176,7 +174,7 @@ def execute_query_on_persistent_sandbox(sandbox_name: str, schema_sql: str, seed
             columns = ["Message"]
             rows = [("Executed successfully.",)]
 
-        # Convert to serializable format
+       
         serialized_rows = []
         for row in rows:
             serialized_row = []
@@ -214,14 +212,14 @@ def drop_persistent_sandbox(sandbox_name: str):
         cleanup_conn.autocommit = True
         cleanup_cur = cleanup_conn.cursor()
 
-        # Terminate connections to sandbox
+       
         cleanup_cur.execute(f"""
             SELECT pg_terminate_backend(pid)
             FROM pg_stat_activity
             WHERE datname = '{sandbox_name}'
         """)
 
-        # Drop sandbox
+       
         cleanup_cur.execute(f'DROP DATABASE IF EXISTS "{sandbox_name}"')
         cleanup_cur.close()
         cleanup_conn.close()
@@ -245,7 +243,7 @@ def check_required_keywords(query, required_keywords):
     
     missing = []
     for kw in required_keywords:
-        # Normalize keyword the same way
+        # แปลง SQL ให้เป็น format เดียวกัน
         kw_upper = re.sub(r'\s+', ' ', kw.upper().strip())
         if kw_upper not in normalized:
             missing.append(kw)

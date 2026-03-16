@@ -836,11 +836,21 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
                             {a.category_name || (categories.find(c => c.category_id === a.category_id)?.name || a.category || "General")}
                           </span>
-                          <h3 className="font-semibold text-gray-800 mt-1">
-                            {a.title}
+                          <h3 className="font-semibold text-gray-800 mt-1 flex flex-wrap items-center gap-2">
+                            <span>{a.title}</span>
                             {!a.is_active && (
-                              <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                              <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
                                 <EyeOff size={10} /> ซ่อนอยู่
+                              </span>
+                            )}
+                            {a.start_date && new Date() < new Date(a.start_date) && (
+                              <span className="text-[10px] bg-yellow-100 text-yellow-700 font-bold px-2 py-0.5 rounded border border-yellow-200 inline-flex items-center">
+                                Upcoming
+                              </span>
+                            )}
+                            {a.due_date && new Date() > new Date(a.due_date) && (
+                              <span className="text-[10px] bg-red-200 text-red-500 font-bold px-2 py-0.5 rounded border border-gray-200 inline-flex items-center">
+                                Past Due
                               </span>
                             )}
                           </h3>

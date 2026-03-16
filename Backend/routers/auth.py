@@ -13,7 +13,7 @@ request_google = requests.Request()
 
 @router.post("/auth/google")
 async def google_auth(request: Request):
-    # parse JSON body asynchronously
+    
     try:
         data = await request.json()
     except Exception:

@@ -54,51 +54,6 @@ export default function Dashboard({ setIsLoggedIn, userEmail }) {
           </div>
         </div>
       </div>
-
-      {/* Main Container */}
-      <div className="max-w-5xl mx-auto mt-10">
-
-        {/* Top Menu Buttons */}
-        <div className="bg-teal-600 p-6 rounded-xl flex justify-center gap-6">
-          <button className="px-10 py-3 bg-yellow-400 rounded-xl font-semibold shadow-md">
-            SQL
-          </button>
-
-          <button className="px-10 py-3 bg-white text-black rounded-xl font-semibold shadow-md hover:bg-gray-100">
-            แบบฝึกหัด
-          </button>
-
-          <button className="px-10 py-3 bg-white text-black rounded-xl font-semibold shadow-md hover:bg-gray-100">
-            คะแนน
-          </button>
-        </div>
-
-        {/* Lesson Cards */}
-        <div className="grid grid-cols-3 gap-8 mt-10">
-          
-          <div className="bg-teal-600 rounded-xl shadow-md">
-            <div className="bg-teal-900 text-white text-center py-4 rounded-t-xl font-semibold">
-              SQL Tutorial
-            </div>
-            <div className="h-40"></div>
-          </div>
-
-          <div className="bg-teal-600 rounded-xl shadow-md">
-            <div className="bg-teal-900 text-white text-center py-4 rounded-t-xl font-semibold">
-              SQL Intro
-            </div>
-            <div className="h-40"></div>
-          </div>
-
-          <div className="bg-teal-600 rounded-xl shadow-md">
-            <div className="bg-teal-900 text-white text-center py-4 rounded-t-xl font-semibold">
-              SQL Syntax
-            </div>
-            <div className="h-40"></div>
-          </div>
-
-        </div>
-      </div>
     </div>
   );
 }

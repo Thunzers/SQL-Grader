@@ -559,7 +559,7 @@ async def run_exercise_test(exercise_id: int, request: Request):
         if due_date and datetime.now(timezone.utc) > due_date.replace(tzinfo=timezone.utc):
             cur.close()
             conn.close()
-            return JSONResponse({"error": "Assignment has expired. \u0e2b\u0e21\u0e14\u0e40\u0e27\u0e25\u0e32\u0e41\u0e25\u0e49\u0e27"}, status_code=403)
+            return JSONResponse({"error": "Assignment has expired. หมดเวลาแล้ว"}, status_code=403)
 
         # Get test cases
         cur.execute("""
@@ -625,7 +625,7 @@ async def generate_test_case(exercise_id: int, request: Request):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Get exercise with dataset info
+        # ดึงข้อมูล exercise พร้อมกับ ข้อมูลของ dataset
         cur.execute("""
             SELECT e.*, d.schema_sql, d.seed_data_sql
             FROM exercises e
@@ -729,7 +729,7 @@ async def submit_exercise(exercise_id: int, request: Request):
         if due_date and datetime.now(timezone.utc) > due_date.replace(tzinfo=timezone.utc):
             cur.close()
             conn.close()
-            return JSONResponse({"error": "Assignment has expired. \u0e2b\u0e21\u0e14\u0e40\u0e27\u0e25\u0e32\u0e41\u0e25\u0e49\u0e27"}, status_code=403)
+            return JSONResponse({"error": "Assignment has expired. หมดเวลาแล้ว"}, status_code=403)
 
         # Get test cases
         cur.execute("""
@@ -747,12 +747,12 @@ async def submit_exercise(exercise_id: int, request: Request):
         schema_sql = exercise.get("schema_sql") or ""
         seed_sql = exercise.get("seed_data_sql") or ""
 
-        # Run student's query on persistent sandbox
+        # Run query ของ student ใน sandbox
         sandbox_name = f"sandbox_stu{user_id}_ex{exercise_id}"
         from utils import execute_query_on_persistent_sandbox, drop_persistent_sandbox
         student_result = execute_query_on_persistent_sandbox(sandbox_name, schema_sql, seed_sql, query)
 
-        # We must drop the persistent sandbox after a submission run, regardless of success or failure
+        # drop sandbox หลังจาก กด submit
         drop_persistent_sandbox(sandbox_name)
 
         if "error" in student_result:
@@ -784,7 +784,7 @@ async def submit_exercise(exercise_id: int, request: Request):
                 **submission_result
             }, status_code=200)
 
-        # Compare with test cases
+
         import json
         
         # Use existing helper (with keyword check)

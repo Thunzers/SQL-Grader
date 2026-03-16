@@ -119,20 +119,21 @@ export default function StudentMenu({ setIsLoggedIn, userEmail, userId }) {
 
             const isActive = now >= startDate && (!hasDueDate || now <= dueDate);
             const isPast = hasDueDate && now > dueDate;
+            const isUpcoming = now < startDate;
 
             return (
               <div
                 key={assignment.assign_id}
-                onClick={() => !isPast && handleAssignmentClick(assignment.assign_id)}
+                onClick={() => !isPast && !isUpcoming && handleAssignmentClick(assignment.assign_id)}
                 className={`rounded-xl shadow border border-gray-200 transition-all duration-200 ${
-                  isPast 
+                  isPast || isUpcoming
                     ? "bg-gray-100 cursor-not-allowed opacity-75" 
                     : "bg-white hover:shadow-2xl hover:-translate-y-1 cursor-pointer"
                 }`}
               >
                 {/* HEADER BLOCK */}
                 <div className={`h-32 p-4 w-full text-white flex flex-col justify-between rounded-t-xl ${
-                  isPast ? "bg-gray-400" : "bg-teal-600"
+                  isPast ? "bg-gray-400" : isUpcoming ? "bg-yellow-500" : "bg-teal-600"
                 }`}>
                   <div>
                     <h3 className="text-xl font-bold line-clamp-1">
@@ -144,12 +145,17 @@ export default function StudentMenu({ setIsLoggedIn, userEmail, userId }) {
                   </div>
                   <div className="flex gap-2">
                     {isActive && (
-                      <span className="bg-green-500 text-white px-2 py-1 text-xs rounded">
+                      <span className="bg-green-500 text-white px-2 py-1 text-xs rounded shadow-sm font-medium">
                         Active
                       </span>
                     )}
+                    {isUpcoming && (
+                      <span className="bg-orange-500 text-white px-2 py-1 text-xs rounded shadow-sm font-medium">
+                        Upcoming
+                      </span>
+                    )}
                     {isPast && (
-                      <span className="bg-gray-600 text-white px-2 py-1 text-xs rounded">
+                      <span className="bg-gray-600 text-white px-2 py-1 text-xs rounded shadow-sm font-medium">
                         Past Due
                       </span>
                     )}

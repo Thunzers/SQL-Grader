@@ -9,6 +9,7 @@ export default function AssignmentDetail({ userId }) {
   const [exercises, setExercises] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPastDue, setIsPastDue] = useState(false);
+  const [isUpcoming, setIsUpcoming] = useState(false);
   const timerRef = useRef(null);
 
   useEffect(() => {
@@ -23,36 +24,59 @@ export default function AssignmentDetail({ userId }) {
       : `http://localhost:5000/api/assignments/${assignmentId}/exercises`;
 
     // Fetch Assignment Info
-    Promise.all([
-      fetch(assignUrl).then((res) => res.json()),
-      fetch(exercisesUrl).then((res) => res.json()),
-    ])
-      .then(([assignmentData, exercisesData]) => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [assignmentData, exercisesData] = await Promise.all([
+          fetch(assignUrl).then(r => r.json()),
+          fetch(exercisesUrl).then(r => r.json())
+        ]);
         setAssignment(assignmentData);
         setExercises(exercisesData);
+      } catch (err) {
+        console.error("Error fetching assignment details:", err);
+      } finally {
         setIsLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching assignment details:", error);
-        setIsLoading(false);
-      });
+      }
+    };
+  fetchData();
   }, [assignmentId, userId]);
 
-  // Real-time due_date check (every second)
+  // Real-time status check (every second)
   useEffect(() => {
-    if (!assignment?.due_date) return;
+    if (!assignment) return;
 
-    const checkDue = () => {
+    const checkStatus = () => {
       const now = new Date();
+      
+      // Check if upcoming
+      const start = new Date(assignment.start_date);
+      if (now < start) {
+        setIsUpcoming(true);
+        setIsPastDue(false);
+        return;
+      } else {
+        setIsUpcoming(false);
+      }
+
+      // Check if past due
+      if (!assignment.due_date) {
+        setIsPastDue(false);
+        if (timerRef.current) clearInterval(timerRef.current);
+        return;
+      }
+
       const due = new Date(assignment.due_date);
       if (now > due) {
         setIsPastDue(true);
         if (timerRef.current) clearInterval(timerRef.current);
+      } else {
+        setIsPastDue(false);
       }
     };
 
-    checkDue(); // check immediately
-    timerRef.current = setInterval(checkDue, 1000);
+    checkStatus(); // check immediately
+    timerRef.current = setInterval(checkStatus, 1000);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -91,6 +115,27 @@ export default function AssignmentDetail({ userId }) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-gray-500">Loading assignment...</div>
+      </div>
+    );
+  }
+
+  if (isUpcoming) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center flex-col gap-4">
+        <div className="text-orange-700 bg-orange-100 p-8 rounded-xl shadow-sm text-center max-w-md w-full border border-orange-200">
+            <AlertTriangle className="mx-auto w-12 h-12 mb-4 opacity-80" />
+            <h2 className="text-2xl font-bold mb-2">ยังไม่ถึงเวลาเริ่มทำแบบฝึกหัด</h2>
+            <p className="text-orange-800/80 mb-6">
+              แบบฝึกหัดนี้จะเปิดให้ทำในวันที่<br/>
+              <strong className="text-lg">{new Date(assignment?.start_date).toLocaleString('th-TH')}</strong>
+            </p>
+            <button 
+                onClick={() => navigate('/student')}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition"
+            >
+                กลับไปหน้าหลัก
+            </button>
+        </div>
       </div>
     );
   }

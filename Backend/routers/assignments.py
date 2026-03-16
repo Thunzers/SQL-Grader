@@ -143,14 +143,12 @@ def get_assignments(category: str = None, user_id: str = None):
                     SUM(s.total_score) as user_score,
                     COUNT(s.exercise_id) as completed_exercises
                 FROM (
-                    -- Get highest score per exercise for this student
                     SELECT exercise_id, MAX(total_score) as total_score, bool_or(is_correct) as is_correct
                     FROM submissions
                     WHERE user_id = %s
                     GROUP BY exercise_id
                 ) s
                 JOIN exercises e ON s.exercise_id = e.exercise_id
-                -- Only count exercises where they got some points or completed them
                 WHERE s.total_score > 0 OR s.is_correct = TRUE
                 GROUP BY e.assign_id
             ) sub ON ai.assign_id = sub.assign_id
