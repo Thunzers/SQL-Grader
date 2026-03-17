@@ -101,7 +101,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
     case_name: "",
     expected_output: "",
     points: 1,
-    is_hidden: false
+    is_hidden: false,
+    required_keywords: []
   });
 
   // Fetch data on mount
@@ -558,7 +559,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
           ? JSON.stringify(testCase.expected_output, null, 2)
           : testCase.expected_output || "",
         points: testCase.points || 1,
-        is_hidden: testCase.is_hidden || false
+        is_hidden: testCase.is_hidden || false,
+        required_keywords: testCase.required_keywords || []
       });
     } else {
       setEditingTestCase(null);
@@ -570,7 +572,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
         case_name: `Test Case ${testCases.length + 1}`,
         expected_output: defaultOutput,
         points: 1,
-        is_hidden: false
+        is_hidden: false,
+        required_keywords: []
       });
     }
     setShowTestCaseModal(true);
@@ -584,7 +587,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
       return;
     }
 
-    // Parse expected_output as JSON
+    // แปลง expected_output เป็น JSON
     let expectedOutputJson;
     try {
       expectedOutputJson = JSON.parse(testCaseForm.expected_output);
@@ -609,7 +612,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 case_name: testCaseForm.case_name,
                 expected_output: expectedOutputJson,
                 points: testCaseForm.points,
-                is_hidden: testCaseForm.is_hidden
+                is_hidden: testCaseForm.is_hidden,
+                required_keywords: testCaseForm.required_keywords
               }
               : tc
           ));
@@ -621,6 +625,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
             expected_output: expectedOutputJson,
             points: testCaseForm.points,
             is_hidden: testCaseForm.is_hidden,
+            required_keywords: testCaseForm.required_keywords,
             is_temp: true
           };
           setTestCases([...testCases, newTemp]);
@@ -641,7 +646,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 case_name: testCaseForm.case_name,
                 expected_output: expectedOutputJson,
                 points: testCaseForm.points,
-                is_hidden: testCaseForm.is_hidden
+                is_hidden: testCaseForm.is_hidden,
+                required_keywords: testCaseForm.required_keywords
               }
               : tc
           ));
@@ -650,7 +656,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
           return;
         }
 
-        // Update existing test case in DB
+        // Update test case ที่มีอยู่
         const res = await fetch(`${API_BASE}/api/test-cases/${editingTestCase.case_id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -658,7 +664,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
             case_name: testCaseForm.case_name,
             expected_output: expectedOutputJson,
             points: testCaseForm.points,
-            is_hidden: testCaseForm.is_hidden
+            is_hidden: testCaseForm.is_hidden,
+            required_keywords: testCaseForm.required_keywords
           })
         });
         if (res.ok) {
@@ -678,7 +685,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
             case_name: testCaseForm.case_name,
             expected_output: expectedOutputJson,
             points: testCaseForm.points,
-            is_hidden: testCaseForm.is_hidden
+            is_hidden: testCaseForm.is_hidden,
+            required_keywords: testCaseForm.required_keywords
           })
         });
         if (res.ok) {
@@ -1028,7 +1036,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                         </div>
                       ) : studentProgress.length === 0 ? (
                         <div className="text-center py-10 text-gray-500 bg-gray-50 rounded-lg">
-                          ไม่พบข้อมูลนักศึกษา โปรดเพิ่มนักศึกษาเข้าสู่ระบบ หรือยังไม่มีนักศึกษาในระบบ
+                          ไม่พบข้อมูลนักศึกษา โปรดเพิ่มแบบฝึกหัดเข้าสู่ระบบ
                         </div>
                       ) : (
                         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
@@ -1511,18 +1519,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 </div>
               </div>
 
-              <div className="flex items-center">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={exerciseForm.show_solution}
-                    onChange={(e) => setExerciseForm({ ...exerciseForm, show_solution: e.target.checked })}
-                    className="w-4 h-4 text-teal-600 rounded"
-                  />
-                  <span className="text-sm text-gray-700">แสดงเฉลยหลังส่งคำตอบ</span>
-                </label>
-              </div>
-
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -1694,6 +1690,61 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                     />
                     <span className="text-sm text-gray-700">ซ่อนจากนักศึกษา</span>
                   </label>
+                </div>
+              </div>
+
+              {/* Required Keywords per Test Case */}
+              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <label className="block text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
+                  <Key size={14} />
+                  SQL Keywords (สำหรับ Test Case นี้)
+                </label>
+                <p className="text-xs text-amber-700 mb-2">
+                  กำหนดคำสั่ง SQL ที่ต้องใช้เพื่อผ่าน Test Case นี้ (ถ้าไม่กำหนดจะใช้ keywords ระดับ Exercise แทน)
+                </p>
+
+                {/* Tags Display */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {(testCaseForm.required_keywords || []).map((kw, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-md text-xs font-semibold border border-amber-300"
+                    >
+                      {kw}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = testCaseForm.required_keywords.filter((_, i) => i !== idx);
+                          setTestCaseForm({ ...testCaseForm, required_keywords: updated });
+                        }}
+                        className="hover:bg-amber-200 rounded-full p-0.5 transition"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                {/* Preset Buttons */}
+                <div className="flex flex-wrap gap-1">
+                  {["WHERE", "AND", "OR", "JOIN", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "GROUP BY", "HAVING", "ORDER BY", "DISTINCT", "LIKE", "IN", "BETWEEN", "EXISTS", "UNION"].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      disabled={(testCaseForm.required_keywords || []).includes(preset)}
+                      onClick={() => {
+                        if (!(testCaseForm.required_keywords || []).includes(preset)) {
+                          setTestCaseForm({
+                            ...testCaseForm,
+                            required_keywords: [...(testCaseForm.required_keywords || []), preset]
+                          });
+                        }
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-amber-200 text-amber-700 rounded hover:bg-amber-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
                 </div>
               </div>
 

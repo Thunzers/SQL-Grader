@@ -257,11 +257,6 @@ def evaluate_test_cases(student_result, test_cases, required_keywords=None, stud
     max_score = 0
     all_passed = True
     
-    # Check required keywords once (applies to all test cases)
-    keyword_check = None
-    if required_keywords and student_query:
-        keyword_check = check_required_keywords(student_query, required_keywords)
-
     for tc in test_cases:
         max_points = tc.get("points", 0)
         max_score += max_points
@@ -323,11 +318,19 @@ def evaluate_test_cases(student_result, test_cases, required_keywords=None, stud
                     is_passed = False
                     error_msg = f"Error comparing rows: {str(e)}"
 
-            # If output matches but keywords are missing, fail the test case
-            if is_passed and keyword_check and not keyword_check["passed"]:
-                is_passed = False
-                missing_str = ", ".join(keyword_check["missing"])
-                error_msg = f"Missing required SQL keywords: {missing_str}"
+            # Per-test-case keyword check
+            # If TC has its own required_keywords, use those; otherwise fallback to exercise-level
+            if is_passed and student_query:
+                tc_keywords = tc.get("required_keywords") or []
+                if isinstance(tc_keywords, str):
+                    tc_keywords = json.loads(tc_keywords)
+                effective_keywords = tc_keywords if tc_keywords else (required_keywords or [])
+                if effective_keywords:
+                    keyword_check = check_required_keywords(student_query, effective_keywords)
+                    if not keyword_check["passed"]:
+                        is_passed = False
+                        missing_str = ", ".join(keyword_check["missing"])
+                        error_msg = f"Missing required SQL keywords: {missing_str}"
 
             points_earned = max_points if is_passed else 0
             total_score += points_earned

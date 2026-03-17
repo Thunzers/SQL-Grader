@@ -1,0 +1,23 @@
+=== test_cases (6 columns) ===
+  case_id: integer
+  exercise_id: integer
+  case_name: character varying
+  expected_output: jsonb
+  points: integer
+  is_hidden: boolean
+
+=== exercises (13 columns) ===
+  exercise_id: integer
+  assign_id: integer
+  dataset_id: integer
+  title: character varying
+  description: text
+  expected_query: text
+  points: integer
+  difficulty: character varying
+  order_num: integer
+  hint: text
+  show_solution: boolean
+  created_at: timestamp without time zone
+  required_keywords: jsonb
+

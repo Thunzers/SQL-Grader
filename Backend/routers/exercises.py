@@ -337,6 +337,7 @@ async def create_test_case(exercise_id: int, request: Request):
     expected_output = data.get("expected_output")
     points = data.get("points", 1)
     is_hidden = data.get("is_hidden", False)
+    required_keywords = data.get("required_keywords", [])
 
     if not expected_output:
         return JSONResponse({"error": "expected_output is required"}, status_code=400)
@@ -362,10 +363,10 @@ async def create_test_case(exercise_id: int, request: Request):
             expected_output_json = expected_output
 
         cur.execute("""
-            INSERT INTO test_cases (exercise_id, case_name, expected_output, points, is_hidden)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO test_cases (exercise_id, case_name, expected_output, points, is_hidden, required_keywords)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING *
-        """, (exercise_id, case_name, expected_output_json, points, is_hidden))
+        """, (exercise_id, case_name, expected_output_json, points, is_hidden, json.dumps(required_keywords)))
         new_test_case = cur.fetchone()
         conn.commit()
         cur.close()
@@ -414,6 +415,9 @@ async def update_test_case(case_id: int, request: Request):
         if "is_hidden" in data:
             update_fields.append("is_hidden = %s")
             values.append(data["is_hidden"])
+        if "required_keywords" in data:
+            update_fields.append("required_keywords = %s")
+            values.append(json.dumps(data["required_keywords"]))
 
         if not update_fields:
             return JSONResponse({"error": "No fields to update"}, status_code=400)
