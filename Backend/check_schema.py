@@ -7,9 +7,13 @@ conn = psycopg2.connect(
 conn.autocommit = True
 cur = conn.cursor()
 
-# Add required_keywords column to test_cases table
-cur.execute("ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS required_keywords JSONB DEFAULT '[]'")
-print("SUCCESS: Added required_keywords column to test_cases table")
+# Add golden_query column to test_cases table
+cur.execute("ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS golden_query TEXT DEFAULT NULL")
+print("SUCCESS: Added golden_query column")
+
+# Add check_order column (boolean) to test_cases table
+cur.execute("ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS check_order BOOLEAN DEFAULT FALSE")
+print("SUCCESS: Added check_order column")
 
 # Verify
 cur.execute(

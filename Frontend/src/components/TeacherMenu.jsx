@@ -99,11 +99,15 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
   const [editingTestCase, setEditingTestCase] = useState(null);
   const [testCaseForm, setTestCaseForm] = useState({
     case_name: "",
+    golden_query: "",
     expected_output: "",
     points: 1,
     is_hidden: false,
-    required_keywords: []
+    required_keywords: [],
+    check_order: false
   });
+  const [previewingGoldenQuery, setPreviewingGoldenQuery] = useState(false);
+  const [goldenQueryPreview, setGoldenQueryPreview] = useState(null);
 
   // Fetch data on mount
   useEffect(() => {
@@ -406,9 +410,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   case_name: tc.case_name,
+                  golden_query: tc.golden_query,
                   expected_output: tc.expected_output,
                   points: tc.points,
-                  is_hidden: tc.is_hidden
+                  is_hidden: tc.is_hidden,
+                  required_keywords: tc.required_keywords || [],
+                  check_order: tc.check_order || false
                 })
               });
             }
@@ -549,31 +556,63 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
     }
   };
 
+  // Preview Golden Query result
+  const handlePreviewGoldenQuery = async () => {
+    if (!testCaseForm.golden_query) {
+      alert("กรุณากรอก Golden Query ก่อน");
+      return;
+    }
+    const datasetId = exerciseForm.dataset_id;
+    if (!datasetId) {
+      alert("กรุณาเลือก Dataset ก่อน");
+      return;
+    }
+    setPreviewingGoldenQuery(true);
+    setGoldenQueryPreview(null);
+    try {
+      // Find dataset
+      const ds = datasets.find(d => String(d.dataset_id) === String(datasetId));
+      if (!ds) { alert("Dataset not found"); return; }
+      const result = await fetch(`${API_BASE}/api/datasets/${datasetId}/run-query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: testCaseForm.golden_query, schema_sql: ds.schema_sql, seed_data_sql: ds.seed_data_sql })
+      });
+      const data = await result.json();
+      setGoldenQueryPreview(data);
+    } catch (err) {
+      setGoldenQueryPreview({ error: err.message });
+    } finally {
+      setPreviewingGoldenQuery(false);
+    }
+  };
+
   // Open Test Case Modal
   const openTestCaseForm = (testCase = null) => {
+    setGoldenQueryPreview(null);
     if (testCase) {
       setEditingTestCase(testCase);
       setTestCaseForm({
         case_name: testCase.case_name || "",
+        golden_query: testCase.golden_query || "",
         expected_output: typeof testCase.expected_output === "object"
           ? JSON.stringify(testCase.expected_output, null, 2)
           : testCase.expected_output || "",
         points: testCase.points || 1,
         is_hidden: testCase.is_hidden || false,
-        required_keywords: testCase.required_keywords || []
+        required_keywords: testCase.required_keywords || [],
+        check_order: testCase.check_order || false
       });
     } else {
       setEditingTestCase(null);
-      // ถ้ามี SQL test result ให้ใช้เป็น expected_output
-      const defaultOutput = sqlTestResult?.success
-        ? JSON.stringify({ columns: sqlTestResult.columns, rows: sqlTestResult.rows, row_count: sqlTestResult.row_count }, null, 2)
-        : "";
       setTestCaseForm({
         case_name: `Test Case ${testCases.length + 1}`,
-        expected_output: defaultOutput,
+        golden_query: exerciseForm.expected_query || "",
+        expected_output: "",
         points: 1,
         is_hidden: false,
-        required_keywords: []
+        required_keywords: [],
+        check_order: false
       });
     }
     setShowTestCaseModal(true);
@@ -582,18 +621,25 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
   // Save Test Case
   const handleSaveTestCase = async (e) => {
     e.preventDefault();
-    if (!testCaseForm.case_name || !testCaseForm.expected_output) {
-      alert("กรุณากรอกชื่อและ Expected Output");
+    if (!testCaseForm.case_name || !testCaseForm.golden_query) {
+      alert("กรุณากรอกชื่อและ Golden Query (SQL เฉลย)");
       return;
     }
 
-    // แปลง expected_output เป็น JSON
-    let expectedOutputJson;
-    try {
-      expectedOutputJson = JSON.parse(testCaseForm.expected_output);
-    } catch {
-      alert("Expected Output ต้องเป็น JSON ที่ถูกต้อง");
-      return;
+    // Auto-detect ORDER BY for check_order
+    const hasOrderBy = testCaseForm.golden_query.toUpperCase().includes("ORDER BY");
+    const effectiveCheckOrder = testCaseForm.check_order || hasOrderBy;
+
+    // For temp saves, we store the golden_query and parse expected_output if available
+    let expectedOutputJson = null;
+    if (testCaseForm.expected_output) {
+      try {
+        expectedOutputJson = typeof testCaseForm.expected_output === "string"
+          ? JSON.parse(testCaseForm.expected_output)
+          : testCaseForm.expected_output;
+      } catch {
+        // Not valid JSON, that's OK for temp saves — the backend will generate it
+      }
     }
 
     setSaving(true);
@@ -610,10 +656,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
               ? {
                 ...tc,
                 case_name: testCaseForm.case_name,
+                golden_query: testCaseForm.golden_query,
                 expected_output: expectedOutputJson,
                 points: testCaseForm.points,
                 is_hidden: testCaseForm.is_hidden,
-                required_keywords: testCaseForm.required_keywords
+                required_keywords: testCaseForm.required_keywords,
+                check_order: effectiveCheckOrder
               }
               : tc
           ));
@@ -622,10 +670,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
           const newTemp = {
             case_id: `temp-${Date.now()}`,
             case_name: testCaseForm.case_name,
+            golden_query: testCaseForm.golden_query,
             expected_output: expectedOutputJson,
             points: testCaseForm.points,
             is_hidden: testCaseForm.is_hidden,
             required_keywords: testCaseForm.required_keywords,
+            check_order: effectiveCheckOrder,
             is_temp: true
           };
           setTestCases([...testCases, newTemp]);
@@ -644,10 +694,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
               ? {
                 ...tc,
                 case_name: testCaseForm.case_name,
+                golden_query: testCaseForm.golden_query,
                 expected_output: expectedOutputJson,
                 points: testCaseForm.points,
                 is_hidden: testCaseForm.is_hidden,
-                required_keywords: testCaseForm.required_keywords
+                required_keywords: testCaseForm.required_keywords,
+                check_order: effectiveCheckOrder
               }
               : tc
           ));
@@ -662,10 +714,11 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             case_name: testCaseForm.case_name,
-            expected_output: expectedOutputJson,
+            golden_query: testCaseForm.golden_query,
             points: testCaseForm.points,
             is_hidden: testCaseForm.is_hidden,
-            required_keywords: testCaseForm.required_keywords
+            required_keywords: testCaseForm.required_keywords,
+            check_order: effectiveCheckOrder
           })
         });
         if (res.ok) {
@@ -683,10 +736,11 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             case_name: testCaseForm.case_name,
-            expected_output: expectedOutputJson,
+            golden_query: testCaseForm.golden_query,
             points: testCaseForm.points,
             is_hidden: testCaseForm.is_hidden,
-            required_keywords: testCaseForm.required_keywords
+            required_keywords: testCaseForm.required_keywords,
+            check_order: effectiveCheckOrder
           })
         });
         if (res.ok) {
@@ -1657,17 +1711,61 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Expected Output (JSON) <span className="text-red-500">*</span>
+                  Golden Query (SQL เฉลย) <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  value={testCaseForm.expected_output}
-                  onChange={(e) => setTestCaseForm({ ...testCaseForm, expected_output: e.target.value })}
-                  rows={8}
-                  placeholder='{"columns": ["name", "salary"], "rows": [{"name": "John", "salary": 50000}], "row_count": 1}'
+                  value={testCaseForm.golden_query}
+                  onChange={(e) => setTestCaseForm({ ...testCaseForm, golden_query: e.target.value })}
+                  rows={5}
+                  placeholder="SELECT department, COUNT(*) as count FROM employees GROUP BY department ORDER BY count DESC"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
                   required
                 />
+                <div className="flex items-center justify-between mt-1">
+                  {testCaseForm.golden_query && testCaseForm.golden_query.toUpperCase().includes("ORDER BY") ? (
+                    <p className="text-xs text-blue-600 flex items-center gap-1">
+                      ✓ ตรวจพบ ORDER BY — ระบบจะเช็คลำดับผลลัพธ์ด้วยอัตโนมัติ
+                    </p>
+                  ) : <div></div>}
+                  <button
+                    type="button"
+                    onClick={handlePreviewGoldenQuery}
+                    disabled={previewingGoldenQuery || !testCaseForm.golden_query}
+                    className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded hover:bg-teal-200 disabled:opacity-50"
+                  >
+                    {previewingGoldenQuery ? "กำลังรัน..." : "ทดสอบรันผลลัพธ์"}
+                  </button>
+                </div>
               </div>
+
+              {/* Golden Query Preview Result */}
+              {goldenQueryPreview && (
+                 <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                   <label className="block text-xs font-semibold text-indigo-700 mb-1 flex items-center gap-1">
+                     <Play size={12}/> ผลการทดสอบจาก Dataset
+                   </label>
+                   {goldenQueryPreview.error ? (
+                     <p className="text-xs text-red-600 font-mono break-words">{goldenQueryPreview.error}</p>
+                   ) : (
+                     <div className="text-xs text-indigo-900 font-mono">
+                       <p>Columns: {goldenQueryPreview.columns?.join(', ')}</p>
+                       <p>Row count: {goldenQueryPreview.row_count}</p>
+                     </div>
+                   )}
+                 </div>
+              )}
+
+              {/* Expected Output Preview (auto-generated, readonly) */}
+              {testCaseForm.expected_output && (
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">
+                    Expected Output (สร้างอัตโนมัติจาก Golden Query ก่อนหน้า)
+                  </label>
+                  <pre className="text-xs text-gray-600 font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
+                    {typeof testCaseForm.expected_output === "string" ? testCaseForm.expected_output : JSON.stringify(testCaseForm.expected_output, null, 2)}
+                  </pre>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

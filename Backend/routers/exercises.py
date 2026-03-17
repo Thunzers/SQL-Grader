@@ -335,12 +335,11 @@ async def create_test_case(exercise_id: int, request: Request):
 
     case_name = data.get("case_name", "Test Case")
     expected_output = data.get("expected_output")
+    golden_query = data.get("golden_query")
     points = data.get("points", 1)
     is_hidden = data.get("is_hidden", False)
     required_keywords = data.get("required_keywords", [])
-
-    if not expected_output:
-        return JSONResponse({"error": "expected_output is required"}, status_code=400)
+    check_order = data.get("check_order", False)
 
     conn = get_db_connection()
     if not conn:
@@ -349,12 +348,37 @@ async def create_test_case(exercise_id: int, request: Request):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Verify exercise exists
-        cur.execute("SELECT exercise_id FROM exercises WHERE exercise_id = %s", (exercise_id,))
-        if not cur.fetchone():
+        # Verify exercise exists and get dataset info
+        cur.execute("""
+            SELECT e.*, d.schema_sql, d.seed_data_sql
+            FROM exercises e
+            LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+            WHERE e.exercise_id = %s
+        """, (exercise_id,))
+        exercise = cur.fetchone()
+        if not exercise:
             cur.close()
             conn.close()
             return JSONResponse({"error": "Exercise not found"}, status_code=404)
+
+        # Golden Query mode: run the query to generate expected_output
+        if golden_query:
+            schema_sql = exercise.get("schema_sql") or ""
+            seed_sql = exercise.get("seed_data_sql") or ""
+            result = run_sql_on_sandbox(schema_sql, seed_sql, golden_query)
+            if "error" in result:
+                cur.close()
+                conn.close()
+                return JSONResponse({"success": False, "error": f"Golden Query error: {result['error']}"}, status_code=400)
+            expected_output = result
+            # Auto-detect ORDER BY → set check_order
+            if "ORDER BY" in golden_query.upper():
+                check_order = True
+
+        if not expected_output:
+            cur.close()
+            conn.close()
+            return JSONResponse({"error": "expected_output or golden_query is required"}, status_code=400)
 
         # Convert expected_output to JSON string if it's a dict
         if isinstance(expected_output, dict):
@@ -363,10 +387,10 @@ async def create_test_case(exercise_id: int, request: Request):
             expected_output_json = expected_output
 
         cur.execute("""
-            INSERT INTO test_cases (exercise_id, case_name, expected_output, points, is_hidden, required_keywords)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO test_cases (exercise_id, case_name, expected_output, points, is_hidden, required_keywords, golden_query, check_order)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
-        """, (exercise_id, case_name, expected_output_json, points, is_hidden, json.dumps(required_keywords)))
+        """, (exercise_id, case_name, expected_output_json, points, is_hidden, json.dumps(required_keywords), golden_query, check_order))
         new_test_case = cur.fetchone()
         conn.commit()
         cur.close()
@@ -397,6 +421,36 @@ async def update_test_case(case_id: int, request: Request):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
+        # If golden_query is provided, we need to re-run it to regenerate expected_output
+        golden_query = data.get("golden_query")
+        if golden_query:
+            # Get the exercise's dataset info via the test case
+            cur.execute("""
+                SELECT e.*, d.schema_sql, d.seed_data_sql
+                FROM test_cases tc
+                JOIN exercises e ON tc.exercise_id = e.exercise_id
+                LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
+                WHERE tc.case_id = %s
+            """, (case_id,))
+            exercise = cur.fetchone()
+            if not exercise:
+                cur.close()
+                conn.close()
+                return JSONResponse({"error": "Test case or exercise not found"}, status_code=404)
+
+            schema_sql = exercise.get("schema_sql") or ""
+            seed_sql = exercise.get("seed_data_sql") or ""
+            result = run_sql_on_sandbox(schema_sql, seed_sql, golden_query)
+            if "error" in result:
+                cur.close()
+                conn.close()
+                return JSONResponse({"success": False, "error": f"Golden Query error: {result['error']}"}, status_code=400)
+
+            # Auto-set expected_output and check_order from golden query
+            data["expected_output"] = result
+            if "ORDER BY" in golden_query.upper():
+                data["check_order"] = True
+
         update_fields = []
         values = []
 
@@ -418,6 +472,12 @@ async def update_test_case(case_id: int, request: Request):
         if "required_keywords" in data:
             update_fields.append("required_keywords = %s")
             values.append(json.dumps(data["required_keywords"]))
+        if "golden_query" in data:
+            update_fields.append("golden_query = %s")
+            values.append(data["golden_query"])
+        if "check_order" in data:
+            update_fields.append("check_order = %s")
+            values.append(data["check_order"])
 
         if not update_fields:
             return JSONResponse({"error": "No fields to update"}, status_code=400)

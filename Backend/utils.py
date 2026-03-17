@@ -280,40 +280,53 @@ def evaluate_test_cases(student_result, test_cases, required_keywords=None, stud
                 is_passed = False
                 error_msg = f"Row count mismatch. Expected: {expected_output.get('row_count')}, Got: {student_result.get('row_count')}"
 
-                # Check row data (convert to set of tuples for comparison)
+                # Check row data
             elif is_passed:
                 try:
                     # Normalize rows to tuples (handle both dict and list formats)
                     def normalize_row(row, columns):
                         if isinstance(row, dict):
-                            # If row is dict, extract values in column order
                             return tuple(row.get(col) for col in columns)
                         elif isinstance(row, (list, tuple)):
-                            # If row is already list/tuple, convert to tuple
                             return tuple(row)
                         else:
-                            # Fallback: wrap in tuple
                             return (row,)
 
                     columns = student_result.get("columns", [])
                     student_rows = [normalize_row(row, columns) for row in student_result.get("rows", [])]
                     expected_rows = [normalize_row(row, columns) for row in expected_output.get("rows", [])]
 
-                    student_set = set(student_rows)
-                    expected_set = set(expected_rows)
+                    # Ordering Flexibility: check_order flag determines comparison method
+                    check_order = tc.get("check_order", False)
 
-                    if student_set != expected_set:
-                        is_passed = False
-                        missing = list(expected_set - student_set)
-                        extra = list(student_set - expected_set)
+                    if check_order:
+                        # ORDER BY matters → compare as ordered lists
+                        if student_rows != expected_rows:
+                            is_passed = False
+                            # Find first difference
+                            for i, (s, e) in enumerate(zip(student_rows, expected_rows)):
+                                if s != e:
+                                    error_msg = f"Row order mismatch at position {i+1}. Expected: {e}, Got: {s}"
+                                    break
+                            else:
+                                error_msg = "Row data mismatch (different lengths after ordering)"
+                    else:
+                        # No ORDER BY → compare as sets (any order OK)
+                        student_set = set(student_rows)
+                        expected_set = set(expected_rows)
 
-                        msg_parts = []
-                        if missing:
-                            msg_parts.append(f"Missing (first 3): {missing[:3]}")
-                        if extra:
-                            msg_parts.append(f"Extra (first 3): {extra[:3]}")
+                        if student_set != expected_set:
+                            is_passed = False
+                            missing = list(expected_set - student_set)
+                            extra = list(student_set - expected_set)
 
-                        error_msg = "Row data mismatch. " + "; ".join(msg_parts)
+                            msg_parts = []
+                            if missing:
+                                msg_parts.append(f"Missing (first 3): {missing[:3]}")
+                            if extra:
+                                msg_parts.append(f"Extra (first 3): {extra[:3]}")
+
+                            error_msg = "Row data mismatch. " + "; ".join(msg_parts)
                 except Exception as e:
                     is_passed = False
                     error_msg = f"Error comparing rows: {str(e)}"
