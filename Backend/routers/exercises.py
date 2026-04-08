@@ -371,9 +371,6 @@ async def create_test_case(exercise_id: int, request: Request):
                 conn.close()
                 return JSONResponse({"success": False, "error": f"Golden Query error: {result['error']}"}, status_code=400)
             expected_output = result
-            # Auto-detect ORDER BY → set check_order
-            if "ORDER BY" in golden_query.upper():
-                check_order = True
 
         if not expected_output:
             cur.close()
@@ -448,8 +445,6 @@ async def update_test_case(case_id: int, request: Request):
 
             # Auto-set expected_output and check_order from golden query
             data["expected_output"] = result
-            if "ORDER BY" in golden_query.upper():
-                data["check_order"] = True
 
         update_fields = []
         values = []
@@ -649,11 +644,11 @@ async def run_exercise_test(exercise_id: int, request: Request):
         if "error" in student_result:
             return JSONResponse({"success": False, "error": student_result["error"]}, status_code=400)
 
-        # Evaluate test cases (with keyword check)
+        # Evaluate test cases (with keyword check and sqlcheck)
         required_keywords = exercise.get("required_keywords") or []
         if isinstance(required_keywords, str):
             required_keywords = json.loads(required_keywords)
-        test_results = evaluate_test_cases(student_result, test_cases, required_keywords=required_keywords, student_query=query)
+        test_results = evaluate_test_cases(student_result, test_cases, required_keywords=required_keywords, student_query=query, exercise_points=exercise.get("points", 0), sandbox_name=sandbox_name)
 
         # Return combined result
         return JSONResponse({
@@ -816,16 +811,16 @@ async def submit_exercise(exercise_id: int, request: Request):
         from utils import execute_query_on_persistent_sandbox, drop_persistent_sandbox
         student_result = execute_query_on_persistent_sandbox(sandbox_name, schema_sql, seed_sql, query)
 
-        # drop sandbox หลังจาก กด submit
-        drop_persistent_sandbox(sandbox_name)
-
         if "error" in student_result:
+            # drop sandbox หลังจาก กด submit แม้จะ fail ก็ตาม
+            drop_persistent_sandbox(sandbox_name)
+
             # Save failed submission
             import json
             submission_result = {
                 "is_correct": False,
                 "total_score": 0,
-                "max_score": sum(tc.get("points", 0) for tc in test_cases),
+                "max_score": exercise.get("points", 0),
                 "error_message": student_result["error"],
                 "results": []
             }
@@ -851,11 +846,14 @@ async def submit_exercise(exercise_id: int, request: Request):
 
         import json
         
-        # Use existing helper (with keyword check)
+        # Use existing helper (with keyword check and sql equivalence)
         required_keywords = exercise.get("required_keywords") or []
         if isinstance(required_keywords, str):
             required_keywords = json.loads(required_keywords)
-        test_evaluation = evaluate_test_cases(student_result, test_cases, required_keywords=required_keywords, student_query=query)
+        test_evaluation = evaluate_test_cases(student_result, test_cases, required_keywords=required_keywords, student_query=query, exercise_points=exercise.get("points", 0), sandbox_name=sandbox_name)
+        
+        # drop sandbox หลังจาก ตรวจเสร็จ
+        drop_persistent_sandbox(sandbox_name)
         
         all_passed = test_evaluation["is_correct"]
         total_score = test_evaluation["total_score"]

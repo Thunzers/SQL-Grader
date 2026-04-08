@@ -3,7 +3,7 @@ import {
   ChevronDown, LogOut, User, FilePlus, Users, ClipboardList,
   X, Save, Plus, Trash2, Edit3, BookOpen, Database, ChevronRight,
   Calendar, Target, FileText, Play, CheckCircle, XCircle, Loader2,
-  Tag, Key, EyeOff
+  Tag, Key, EyeOff, RotateCcw
 } from "lucide-react";
 import Notification from "./Notification";
 import ConfirmModal from "./ConfirmModal";
@@ -559,7 +559,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
   // Preview Golden Query result
   const handlePreviewGoldenQuery = async () => {
     if (!testCaseForm.golden_query) {
-      alert("กรุณากรอก Golden Query ก่อน");
+      alert("กรุณากรอก SQL Query ก่อน");
       return;
     }
     const datasetId = exerciseForm.dataset_id;
@@ -622,13 +622,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
   const handleSaveTestCase = async (e) => {
     e.preventDefault();
     if (!testCaseForm.case_name || !testCaseForm.golden_query) {
-      alert("กรุณากรอกชื่อและ Golden Query (SQL เฉลย)");
+      alert("กรุณากรอกชื่อและ SQL Query (SQL เฉลย)");
       return;
     }
 
     // Auto-detect ORDER BY for check_order
-    const hasOrderBy = testCaseForm.golden_query.toUpperCase().includes("ORDER BY");
-    const effectiveCheckOrder = testCaseForm.check_order || hasOrderBy;
+    const effectiveCheckOrder = !!testCaseForm.check_order;
 
     // For temp saves, we store the golden_query and parse expected_output if available
     let expectedOutputJson = null;
@@ -1291,9 +1290,10 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                     <button
                       type="button"
                       onClick={() => setAssignmentForm({ ...assignmentForm, start_date: "" })}
-                      className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition"
                     >
-                      ไม่กำหนด
+                      <RotateCcw size={12} />
+                      รีเซ็ตเวลา
                     </button>
                   </div>
                   <input
@@ -1311,9 +1311,10 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                     <button
                       type="button"
                       onClick={() => setAssignmentForm({ ...assignmentForm, due_date: "" })}
-                      className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition"
                     >
-                      ไม่กำหนด
+                      <RotateCcw size={12} />
+                      รีเซ็ตเวลา
                     </button>
                   </div>
                   <input
@@ -1442,7 +1443,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                             <span className="text-sm font-medium text-gray-700">
                               {tc.case_name || `Test Case #${tc.case_id}`}
                             </span>
-                            <span className="text-xs text-gray-500 ml-2">({tc.points} คะแนน)</span>
                             {tc.is_hidden && (
                               <span className="text-xs bg-gray-200 text-gray-600 px-1 py-0.5 rounded ml-2">ซ่อน</span>
                             )}
@@ -1711,7 +1711,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Golden Query (SQL เฉลย) <span className="text-red-500">*</span>
+                  SQL Query (SQL เฉลย) <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={testCaseForm.golden_query}
@@ -1722,11 +1722,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                   required
                 />
                 <div className="flex items-center justify-between mt-1">
-                  {testCaseForm.golden_query && testCaseForm.golden_query.toUpperCase().includes("ORDER BY") ? (
-                    <p className="text-xs text-blue-600 flex items-center gap-1">
-                      ✓ ตรวจพบ ORDER BY — ระบบจะเช็คลำดับผลลัพธ์ด้วยอัตโนมัติ
-                    </p>
-                  ) : <div></div>}
+                  <div className="flex-grow"></div>
                   <button
                     type="button"
                     onClick={handlePreviewGoldenQuery}
@@ -1759,36 +1755,36 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
               {testCaseForm.expected_output && (
                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <label className="block text-xs font-semibold text-gray-500 mb-1">
-                    Expected Output (สร้างอัตโนมัติจาก Golden Query ก่อนหน้า)
+                    Expected Output (สร้างอัตโนมัติจาก SQL Query)
                   </label>
                   <pre className="text-xs text-gray-600 font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
                     {typeof testCaseForm.expected_output === "string" ? testCaseForm.expected_output : JSON.stringify(testCaseForm.expected_output, null, 2)}
                   </pre>
                 </div>
               )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">คะแนน</label>
+              <div className="flex flex-col gap-3 pt-2 pb-2">
+                <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 transition-colors">
                   <input
-                    type="number"
-                    min="1"
-                    value={testCaseForm.points}
-                    onChange={(e) => setTestCaseForm({ ...testCaseForm, points: parseInt(e.target.value) || 1 })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
+                    type="checkbox"
+                    checked={testCaseForm.check_order}
+                    onChange={(e) => setTestCaseForm({ ...testCaseForm, check_order: e.target.checked })}
+                    className="w-4 h-4 text-teal-600 rounded"
                   />
-                </div>
-                <div className="flex items-center pt-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={testCaseForm.is_hidden}
-                      onChange={(e) => setTestCaseForm({ ...testCaseForm, is_hidden: e.target.checked })}
-                      className="w-4 h-4 text-teal-600 rounded"
-                    />
-                    <span className="text-sm text-gray-700">ซ่อนจากนักศึกษา</span>
-                  </label>
-                </div>
+                  <span className="text-sm font-semibold text-teal-800">
+                    ตรวจลำดับผลลัพธ์ (Check Row Order) 
+                    <span className="text-xs font-normal text-gray-500 block">เปิดเมื่อผลลัพธ์ต้องเรียงเหมือนเฉลยเป๊ะๆ (เช่นโจทย์ที่มี ORDER BY)</span>
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={testCaseForm.is_hidden}
+                    onChange={(e) => setTestCaseForm({ ...testCaseForm, is_hidden: e.target.checked })}
+                    className="w-4 h-4 text-gray-600 rounded"
+                  />
+                  <span className="text-sm text-gray-700">ซ่อนจากนักศึกษา (Hidden Test Case)</span>
+                </label>
               </div>
 
               {/* Required Keywords per Test Case */}
@@ -1798,7 +1794,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                   SQL Keywords (สำหรับ Test Case นี้)
                 </label>
                 <p className="text-xs text-amber-700 mb-2">
-                  กำหนดคำสั่ง SQL ที่ต้องใช้เพื่อผ่าน Test Case นี้ (ถ้าไม่กำหนดจะใช้ keywords ระดับ Exercise แทน)
+                  กำหนดคำสั่ง SQL ที่ต้องใช้เพื่อผ่าน Test Case นี้ 
                 </p>
 
                 {/* Tags Display */}

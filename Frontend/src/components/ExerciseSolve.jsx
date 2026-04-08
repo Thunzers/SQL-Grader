@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Play, Send, AlertCircle, ChevronUp, ChevronDown, Database, Lightbulb, FileText, CheckCircle2, XCircle, Loader2, Terminal, GripVertical, AlertTriangle, List } from "lucide-react";
+import { ArrowLeft, Play, Send, AlertCircle, ChevronUp, ChevronDown, Database, Lightbulb, FileText, CheckCircle2, XCircle, Loader2, Terminal, GripVertical, AlertTriangle, List, Clock } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import MonacoSQLEditor from "./MonacoSQLEditor";
 import SubmitResultModal from "./SubmitResultModal";
@@ -30,6 +30,7 @@ export default function ExerciseSolve({ userId }) {
 
   // Due date expiry
   const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [timeLeftStr, setTimeLeftStr] = useState("");
   const dueTimerRef = useRef(null);
 
   // Problem List Sidebar
@@ -92,7 +93,10 @@ export default function ExerciseSolve({ userId }) {
 
   // Real-time due_date check — auto-redirect when expired
   useEffect(() => {
-    if (!exercise?.assignment_due_date) return;
+    if (!exercise?.assignment_due_date) {
+      if (dueTimerRef.current) clearInterval(dueTimerRef.current);
+      return;
+    }
 
     const checkDue = () => {
       const now = new Date();
@@ -100,6 +104,18 @@ export default function ExerciseSolve({ userId }) {
       if (now > due) {
         setShowExpiredModal(true);
         if (dueTimerRef.current) clearInterval(dueTimerRef.current);
+        setTimeLeftStr("Expired");
+      } else {
+        const diff = due - now;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const mins = Math.floor((diff / 1000 / 60) % 60);
+        const secs = Math.floor((diff / 1000) % 60);
+        
+        let timeString = "";
+        if (days > 0) timeString += `${days} วัน `;
+        timeString += `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        setTimeLeftStr(timeString);
       }
     };
 
@@ -384,6 +400,13 @@ export default function ExerciseSolve({ userId }) {
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs">
+          {exercise?.assignment_due_date && timeLeftStr && timeLeftStr !== "Expired" && (
+            <div className="flex items-center gap-1.5 bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/30">
+              <Clock size={14} className="text-rose-100" />
+              <span className="text-rose-50">เหลือเวลา:</span>
+              <span className="font-mono font-bold text-white">{timeLeftStr}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
             <span className="text-white/80">Points</span>
             <span className="font-semibold">{exercise.points}</span>
@@ -747,7 +770,7 @@ export default function ExerciseSolve({ userId }) {
                         <div className="space-y-2">
                            <div className="flex justify-between text-xs font-semibold text-gray-500">
                               <span>Progress</span>
-                              <span>{Math.round((testResults.total_score / testResults.max_score) * 100)}%</span>
+                              <span>{testResults.max_score > 0 ? Math.round((testResults.total_score / testResults.max_score) * 100) : 0}%</span>
                            </div>
                            <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
                             <div
@@ -782,11 +805,6 @@ export default function ExerciseSolve({ userId }) {
                                      {result.error}
                                    </span>
                                  )}
-                                <span className={`text-xs font-bold px-2 py-1 rounded ${
-                                  result.is_passed ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                                }`}>
-                                  {result.points_earned}/{result.max_points} pts
-                                </span>
                               </div>
                             </div>
                           ))}

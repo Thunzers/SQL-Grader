@@ -177,7 +177,7 @@ export default function AssignmentDetail({ userId }) {
                   <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded">
                     <Clock size={16} />
                     <span>
-                      Due: {new Date(assignment.due_date).toLocaleDateString()}
+                      Due: {new Date(assignment.due_date).toLocaleString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                   </div>
                 )}

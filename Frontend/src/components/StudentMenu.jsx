@@ -179,7 +179,7 @@ export default function StudentMenu({ setIsLoggedIn, userEmail, userId }) {
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-gray-500" />
                       <span>
-                        Due: {new Date(assignment.due_date).toLocaleDateString()}
+                        Due: {new Date(assignment.due_date).toLocaleString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
                     </div>
                   )}

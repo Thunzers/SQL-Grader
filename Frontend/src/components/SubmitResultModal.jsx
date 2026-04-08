@@ -52,7 +52,7 @@ export default function SubmitResultModal({ isOpen, onClose, result }) {
               {result.total_score}/{result.max_score}
             </div>
             <div className="text-gray-600">
-              {((result.total_score / result.max_score) * 100).toFixed(0)}% Score
+              {result.max_score > 0 ? ((result.total_score / result.max_score) * 100).toFixed(0) : 0}% Score
             </div>
           </div>
 
@@ -81,9 +81,6 @@ export default function SubmitResultModal({ isOpen, onClose, result }) {
                       {test.case_name}
                     </span>
                   </div>
-                  <span className="text-sm text-gray-600">
-                    {test.points_earned}/{test.max_points} pts
-                  </span>
                 </div>
               ))}
             </div>
