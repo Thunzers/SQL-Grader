@@ -275,7 +275,8 @@ def evaluate_test_cases(student_result, test_cases, required_keywords=None, stud
                         host=DB_HOST, database=sandbox_name, user=DB_USER, password=DB_PASS, port=DB_PORT
                     )
                     sc_cur = sc_conn.cursor()
-                    
+                    sc_cur.execute("SET statement_timeout = '10s'")
+
                     if check_order:
                         sc_cur.execute("SELECT equivalent, mismatched_positions, message FROM sqlcheck.check_query_equivalence_ordered(%s, %s)", (student_query, golden_query))
                         res = sc_cur.fetchone()

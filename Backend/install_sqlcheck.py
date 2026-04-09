@@ -40,6 +40,8 @@ DECLARE
                  ELSE 'EXCEPT'
                END;
     sql_text text;
+    q1_cols int;
+    q2_cols int;
 BEGIN
     -- Remove trailing semicolon from q1 and q2 if present
     q1 := regexp_replace(q1, ';\\s*$', '');
@@ -52,6 +54,20 @@ BEGIN
 
     IF q2 !~* '^\\s*(select|with)\\s' THEN
         RAISE EXCEPTION 'q2 must start with SELECT or WITH';
+    END IF;
+
+    -- Column count check: compare number of columns from both queries
+    EXECUTE format('SELECT COUNT(*) FROM jsonb_each_text((SELECT to_jsonb(ROW(t.*)) FROM (%s) AS t LIMIT 1))', q1) INTO q1_cols;
+    EXECUTE format('SELECT COUNT(*) FROM jsonb_each_text((SELECT to_jsonb(ROW(t.*)) FROM (%s) AS t LIMIT 1))', q2) INTO q2_cols;
+
+    IF q1_cols IS DISTINCT FROM q2_cols THEN
+        RETURN QUERY SELECT
+            false,
+            NULL::bigint,
+            NULL::bigint,
+            CASE WHEN consider_duplicates THEN 'bag equality (duplicates counted)' ELSE 'set equality (duplicates ignored)' END::text,
+            format('Column count mismatch: student returned %s columns, expected %s', q1_cols, q2_cols)::text;
+        RETURN;
     END IF;
 
     sql_text := format($SQL$
@@ -213,6 +229,8 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     sql_text text;
+    q1_cols int;
+    q2_cols int;
 BEGIN
     -- Remove trailing semicolon from q1 and q2 if present
     q1 := regexp_replace(q1, ';\\s*$', '');
@@ -224,6 +242,18 @@ BEGIN
 
     IF q2 !~* '^\\s*(select|with)\\s' THEN
         RAISE EXCEPTION 'q2 must start with SELECT or WITH';
+    END IF;
+
+    -- Column count check
+    EXECUTE format('SELECT COUNT(*) FROM jsonb_each_text((SELECT to_jsonb(ROW(t.*)) FROM (%s) AS t LIMIT 1))', q1) INTO q1_cols;
+    EXECUTE format('SELECT COUNT(*) FROM jsonb_each_text((SELECT to_jsonb(ROW(t.*)) FROM (%s) AS t LIMIT 1))', q2) INTO q2_cols;
+
+    IF q1_cols IS DISTINCT FROM q2_cols THEN
+        RETURN QUERY SELECT
+            false,
+            NULL::bigint,
+            format('Column count mismatch: student returned %s columns, expected %s', q1_cols, q2_cols)::text;
+        RETURN;
     END IF;
 
     sql_text := format($SQL$
