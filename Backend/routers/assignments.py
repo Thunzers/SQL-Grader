@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from psycopg2.extras import RealDictCursor
 from database import get_db_connection
-from utils import serialize_row
+from utils import serialize_row, user_can_access_assignment
 
 router = APIRouter()
 
@@ -107,6 +107,17 @@ def update_category(category_id: int, category: CategoryCreate):
 
 @router.get("/api/assignments")
 def get_assignments(category: str = None, user_id: str = None):
+    """
+    Strict, fail-closed visibility:
+      - no user_id  : unrestricted (internal / admin tooling).
+      - admin       : unrestricted.
+      - teacher     : only assignments they created OR assignments linked
+                      to classes they teach (class_teachers → class_assignments).
+      - student     : only is_active assignments linked to classes they are
+                      enrolled in (class_students → class_assignments) OR
+                      individually assigned (assignment_students).
+      - unknown uid / unsupported role : 403 Forbidden (never fall back to "all").
+    """
     conn = get_db_connection()
     if not conn:
         return JSONResponse({"error": "Database connection failed"}, status_code=500)
@@ -114,76 +125,124 @@ def get_assignments(category: str = None, user_id: str = None):
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Base CTE to get assignment info + total max score from exercises
-        cte_sql = """
+        # -- 1) Resolve role (fail-closed on missing user) ----------------
+        user_role = None
+        if user_id:
+            cur.execute("SELECT role FROM users WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                cur.close(); conn.close()
+                return JSONResponse(
+                    {"error": f"Unknown user_id '{user_id}'"},
+                    status_code=403,
+                )
+            user_role = row["role"]
+            if user_role not in ("student", "teacher", "admin"):
+                cur.close(); conn.close()
+                return JSONResponse(
+                    {"error": f"Unsupported role '{user_role}'"},
+                    status_code=403,
+                )
+            print(f"[/api/assignments] user_id={user_id} role={user_role}")
+
+        # -- 2) Build access + active filter strictly per role ------------
+        params = {}
+        if user_id:
+            params["access_uid"] = user_id
+            params["sub_uid"]    = user_id
+        if category:
+            params["cat_id"] = int(category)
+
+        if user_role == "student":
+            access_sql = """
+                AND a.assign_id IN (
+                    SELECT ca.assign_id
+                      FROM class_students cs
+                      JOIN class_assignments ca ON ca.class_id = cs.class_id
+                     WHERE cs.user_id = %(access_uid)s
+                    UNION
+                    SELECT asg.assign_id
+                      FROM assignment_students asg
+                     WHERE asg.user_id = %(access_uid)s
+                )
+            """
+            active_sql = "AND a.is_active = TRUE"
+        elif user_role == "teacher":
+            access_sql = """
+                AND (a.created_by = %(access_uid)s
+                     OR a.assign_id IN (
+                         SELECT ca.assign_id
+                           FROM class_teachers ct
+                           JOIN class_assignments ca ON ca.class_id = ct.class_id
+                          WHERE ct.user_id = %(access_uid)s
+                     ))
+            """
+            active_sql = ""  # teachers may see their own drafts
+        else:
+            # admin or no user_id -> unrestricted
+            access_sql = ""
+            active_sql = ""
+
+        category_sql = "AND a.category_id = %(cat_id)s" if category else ""
+
+        # -- 3) CTE base --------------------------------------------------
+        cte_sql = f"""
             WITH AssignInfo AS (
                 SELECT a.*, c.name as category_name,
                        COUNT(e.exercise_id) as exercise_count,
                        COALESCE(SUM(e.points), 0) as max_score
                 FROM assignments a
                 LEFT JOIN categories c ON a.category_id = c.category_id
-                LEFT JOIN exercises e ON a.assign_id = e.assign_id
+                LEFT JOIN exercises  e ON a.assign_id   = e.assign_id
                 WHERE 1=1
-                {active_filter}
-                {category_filter}
+                  {active_sql}
+                  {category_sql}
+                  {access_sql}
                 GROUP BY a.assign_id, c.name
             )
         """
-        
-        # If user_id is provided, calculate their progress
+
+        # -- 4) Projection ------------------------------------------------
         if user_id:
             query = cte_sql + """
-            SELECT ai.*,
-                   COALESCE(sub.user_score, 0) as user_score,
-                   COALESCE(sub.completed_exercises, 0) as completed_exercises
-            FROM AssignInfo ai
-            LEFT JOIN (
-                SELECT 
-                    e.assign_id,
-                    SUM(s.total_score) as user_score,
-                    COUNT(s.exercise_id) as completed_exercises
-                FROM (
-                    SELECT exercise_id, MAX(total_score) as total_score, bool_or(is_correct) as is_correct
-                    FROM submissions
-                    WHERE user_id = %s
-                    GROUP BY exercise_id
-                ) s
-                JOIN exercises e ON s.exercise_id = e.exercise_id
-                WHERE s.total_score > 0 OR s.is_correct = TRUE
-                GROUP BY e.assign_id
-            ) sub ON ai.assign_id = sub.assign_id
-            ORDER BY ai.created_at DESC
+                SELECT ai.*,
+                       COALESCE(sub.user_score, 0) as user_score,
+                       COALESCE(sub.completed_exercises, 0) as completed_exercises
+                FROM AssignInfo ai
+                LEFT JOIN (
+                    SELECT
+                        e.assign_id,
+                        SUM(s.total_score)     as user_score,
+                        COUNT(s.exercise_id)   as completed_exercises
+                    FROM (
+                        SELECT exercise_id,
+                               MAX(total_score) as total_score,
+                               bool_or(is_correct) as is_correct
+                          FROM submissions
+                         WHERE user_id = %(sub_uid)s
+                         GROUP BY exercise_id
+                    ) s
+                    JOIN exercises e ON s.exercise_id = e.exercise_id
+                    WHERE s.total_score > 0 OR s.is_correct = TRUE
+                    GROUP BY e.assign_id
+                ) sub ON ai.assign_id = sub.assign_id
+                ORDER BY ai.created_at DESC
             """
-            
-            category_filter = "AND a.category_id = %s" if category else ""
-            query = query.format(active_filter="AND a.is_active = TRUE", category_filter=category_filter)
-            
-            params = [user_id]
-            if category:
-                params.insert(0, int(category))
-                
-            cur.execute(query, tuple(params))
         else:
             query = cte_sql + """
-            SELECT * FROM AssignInfo
-            ORDER BY created_at DESC
+                SELECT * FROM AssignInfo
+                ORDER BY created_at DESC
             """
-            
-            category_filter = "AND a.category_id = %s" if category else ""
-            query = query.format(active_filter="", category_filter=category_filter)
-            
-            if category:
-                cur.execute(query, (int(category),))
-            else:
-                cur.execute(query)
 
+        cur.execute(query, params)
         assignments = cur.fetchall()
-        cur.close()
-        conn.close()
+        cur.close(); conn.close()
 
         return JSONResponse([serialize_row(a) for a in assignments], status_code=200)
     except Exception as e:
         print(f"Error fetching assignments: {e}")
+        try: conn.close()
+        except Exception: pass
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.get("/api/assignments/{assign_id}")
@@ -194,6 +253,13 @@ def get_assignment(assign_id: int, user_id: str = None):
 
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Strict access control: hide assignments the caller is not allowed to see.
+        if user_id:
+            allowed, _role = user_can_access_assignment(cur, user_id, assign_id)
+            if not allowed:
+                cur.close(); conn.close()
+                return JSONResponse({"error": "Forbidden"}, status_code=403)
 
         if user_id:
             cur.execute("""

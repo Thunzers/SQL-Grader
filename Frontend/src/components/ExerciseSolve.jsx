@@ -31,6 +31,7 @@ export default function ExerciseSolve({ userId }) {
   // Due date expiry
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [timeLeftStr, setTimeLeftStr] = useState("");
+  const [isTimeLow, setIsTimeLow] = useState(false);
   const dueTimerRef = useRef(null);
 
   // Problem List Sidebar
@@ -116,6 +117,7 @@ export default function ExerciseSolve({ userId }) {
         if (days > 0) timeString += `${days} วัน `;
         timeString += `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         setTimeLeftStr(timeString);
+        setIsTimeLow(diff <= 3 * 60 * 1000);
       }
     };
 
@@ -401,9 +403,9 @@ export default function ExerciseSolve({ userId }) {
         </div>
         <div className="flex items-center gap-3 text-xs">
           {exercise?.assignment_due_date && timeLeftStr && timeLeftStr !== "Expired" && (
-            <div className="flex items-center gap-1.5 bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/30">
-              <Clock size={14} className="text-rose-100" />
-              <span className="text-rose-50">เหลือเวลา:</span>
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isTimeLow ? 'bg-red-600 border-red-700 animate-pulse' : 'bg-rose-500/20 border-rose-500/30'}`}>
+              <Clock size={14} className="text-white" />
+              <span className="text-white">เหลือเวลา:</span>
               <span className="font-mono font-bold text-white">{timeLeftStr}</span>
             </div>
           )}

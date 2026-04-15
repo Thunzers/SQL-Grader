@@ -8,6 +8,7 @@ import {
 import Notification from "./Notification";
 import ConfirmModal from "./ConfirmModal";
 import UserManagementModal from "./admin/UserManagementModal";
+import ClassManagement from "./ClassManagement";
 
 const API_BASE = "http://localhost:5000";
 
@@ -114,13 +115,16 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
     fetchAssignments();
     fetchDatasets();
     fetchCategories();
-  }, []);
+  }, [userId]);
 
   // Fetch assignments
   const fetchAssignments = async () => {
     setLoadingAssignments(true);
     try {
-      const res = await fetch(`${API_BASE}/api/assignments`);
+      const url = userId
+        ? `${API_BASE}/api/assignments?user_id=${userId}`
+        : `${API_BASE}/api/assignments`;
+      const res = await fetch(url);
       const data = await res.json();
       if (Array.isArray(data)) {
         setAssignments(data);
@@ -827,6 +831,12 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
               <Database size={16} className="inline mr-1" /> Datasets
             </button>
             <button
+              onClick={() => setActiveTab("classes")}
+              className={`px-3 py-1 rounded transition ${activeTab === "classes" ? "bg-white/20" : "hover:bg-white/10"}`}
+            >
+              <Users size={16} className="inline mr-1" /> Classes
+            </button>
+            <button
               onClick={() => setShowUserModal(true)}
               className="px-3 py-1 rounded transition hover:bg-white/10 text-teal-100 font-semibold"
             >
@@ -1213,6 +1223,9 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
             )}
           </div>
         )}
+
+        {/* === CLASSES TAB === */}
+        {activeTab === "classes" && <ClassManagement userId={userId} />}
       </div>
 
       {/* === ASSIGNMENT MODAL === */}
@@ -1880,6 +1893,7 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
         isOpen={showUserModal}
         onClose={() => setShowUserModal(false)}
         mode="teacher"
+        userId={userId}
       />
 
       {/* === CATEGORY MANAGEMENT MODAL === */}

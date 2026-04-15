@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 from psycopg2.extras import RealDictCursor
 from database import get_db_connection
-from utils import serialize_row, run_sql_on_sandbox, evaluate_test_cases
+from utils import serialize_row, run_sql_on_sandbox, evaluate_test_cases, user_can_access_assignment
 import json
 from datetime import datetime, timezone
 
@@ -17,12 +17,19 @@ def get_exercises(assign_id: int, user_id: str = None):
 
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
+
+        # Strict access control: caller must be allowed to see the parent assignment.
+        if user_id:
+            allowed, _role = user_can_access_assignment(cur, user_id, assign_id)
+            if not allowed:
+                cur.close(); conn.close()
+                return JSONResponse({"error": "Forbidden"}, status_code=403)
+
         if user_id:
             cur.execute("""
                 SELECT e.*, d.name as dataset_name,
                        COALESCE(sub.user_score, 0) as user_score,
-                       CASE 
+                       CASE
                            WHEN sub.is_correct = TRUE THEN 'completed'
                            WHEN sub.user_score > 0 THEN 'attempted'
                            ELSE 'unattempted'

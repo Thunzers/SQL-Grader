@@ -5,6 +5,83 @@ from database import get_db_connection, DB_HOST, DB_NAME, DB_USER, DB_PASS, DB_P
 import uuid
 import json
 
+def get_user_role(cur, user_id):
+    """Return users.role for user_id, or None if not found."""
+    if not user_id:
+        return None
+    cur.execute("SELECT role FROM users WHERE user_id = %s", (user_id,))
+    r = cur.fetchone()
+    if not r:
+        return None
+    # support both RealDictCursor and tuple cursor
+    return r["role"] if isinstance(r, dict) or hasattr(r, "keys") else r[0]
+
+
+def user_can_access_assignment(cur, user_id, assign_id):
+    """
+    Strict access control for an assignment, mirroring /api/assignments
+    list visibility rules:
+      - admin / unknown role : full access (returns True)
+      - teacher              : created the assignment OR teaches a class
+                               that the assignment is linked to
+      - student              : assignment is active AND linked to a class
+                               they are enrolled in, OR directly assigned
+                               via assignment_students
+    Returns (allowed: bool, role: str|None).
+    """
+    role = get_user_role(cur, user_id)
+    if role in (None, "admin"):
+        return True, role
+
+    if role == "teacher":
+        cur.execute(
+            """
+            SELECT 1
+            FROM assignments a
+            WHERE a.assign_id = %s
+              AND (a.created_by = %s
+                   OR EXISTS (
+                       SELECT 1
+                       FROM class_teachers ct
+                       JOIN class_assignments ca ON ca.class_id = ct.class_id
+                       WHERE ct.user_id = %s
+                         AND ca.assign_id = a.assign_id
+                   ))
+            LIMIT 1
+            """,
+            (assign_id, user_id, user_id),
+        )
+        return cur.fetchone() is not None, role
+
+    if role == "student":
+        cur.execute(
+            """
+            SELECT 1
+            FROM assignments a
+            WHERE a.assign_id = %s
+              AND a.is_active = TRUE
+              AND (EXISTS (
+                       SELECT 1
+                       FROM class_students cs
+                       JOIN class_assignments ca ON ca.class_id = cs.class_id
+                       WHERE cs.user_id = %s
+                         AND ca.assign_id = a.assign_id
+                   )
+                   OR EXISTS (
+                       SELECT 1
+                       FROM assignment_students asg
+                       WHERE asg.user_id = %s
+                         AND asg.assign_id = a.assign_id
+                   ))
+            LIMIT 1
+            """,
+            (assign_id, user_id, user_id),
+        )
+        return cur.fetchone() is not None, role
+
+    return False, role
+
+
 def serialize_row(row):
     """Helper function to serialize database row"""
     if not row:
