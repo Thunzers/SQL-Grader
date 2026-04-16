@@ -99,7 +99,7 @@ export default function SubmitResultModal({ isOpen, onClose, result }) {
           {!isSuccess && (
             <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
               <p className="text-sm text-blue-800">
-                💡 Check the <strong>Test Cases</strong> tab for detailed
+                💡 Check the <strong>Results</strong> tab for detailed
                 feedback and try again!
               </p>
             </div>

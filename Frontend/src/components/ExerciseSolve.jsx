@@ -640,7 +640,7 @@ export default function ExerciseSolve({ userId }) {
                         : "text-gray-500 border-transparent hover:text-gray-700"
                     }`}
                   >
-                    Test Cases
+                    Results
                     {testResults && (
                       <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
                         testResults.is_correct
@@ -738,7 +738,7 @@ export default function ExerciseSolve({ userId }) {
                   </div>
                 )}
 
-                {/* Test Cases Tab */}
+                {/* Results Tab */}
                 {outputTab === "testcases" && !isRunning && (
                   <div className="p-4">
                     {testResults ? (

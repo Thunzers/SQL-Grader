@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import {
   ChevronDown, LogOut, User, FilePlus, Users, ClipboardList,
   X, Save, Plus, Trash2, Edit3, BookOpen, Database, ChevronRight,
-  Calendar, Target, FileText, Play, CheckCircle, XCircle, Loader2,
-  Tag, Key, EyeOff, RotateCcw
+  Calendar, Target, FileText, Loader2,
+  Key, EyeOff, RotateCcw
 } from "lucide-react";
 import Notification from "./Notification";
 import ConfirmModal from "./ConfirmModal";
@@ -71,7 +71,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
     difficulty: "",
     order_num: 0,
     hint: "",
-    show_solution: false
+    show_solution: false,
+    check_order: false
   });
 
   // Dataset Form State
@@ -91,24 +92,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
   // Confirm Modal State
   const [confirmModal, setConfirmModal] = useState(null);
 
-  // Test Cases State
-  const [testCases, setTestCases] = useState([]);
-  const [loadingTestCases, setLoadingTestCases] = useState(false);
-  const [testingSQL, setTestingSQL] = useState(false);
-  const [sqlTestResult, setSqlTestResult] = useState(null);
-  const [showTestCaseModal, setShowTestCaseModal] = useState(false);
-  const [editingTestCase, setEditingTestCase] = useState(null);
-  const [testCaseForm, setTestCaseForm] = useState({
-    case_name: "",
-    golden_query: "",
-    expected_output: "",
-    points: 1,
-    is_hidden: false,
-    required_keywords: [],
-    check_order: false
-  });
-  const [previewingGoldenQuery, setPreviewingGoldenQuery] = useState(false);
-  const [goldenQueryPreview, setGoldenQueryPreview] = useState(null);
 
   // Fetch data on mount
   useEffect(() => {
@@ -342,8 +325,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
 
   // Open Exercise Modal
   const openExerciseForm = (exercise = null) => {
-    setSqlTestResult(null);
-    setTestCases([]);
     if (exercise) {
       setEditingExercise(exercise);
       setExerciseForm({
@@ -356,9 +337,9 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
         order_num: exercise.order_num || 0,
         hint: exercise.hint || "",
         show_solution: exercise.show_solution || false,
-        required_keywords: exercise.required_keywords || []
+        required_keywords: exercise.required_keywords || [],
+        check_order: exercise.check_order || false
       });
-      fetchTestCases(exercise.exercise_id);
     } else {
       setEditingExercise(null);
       setExerciseForm({
@@ -371,7 +352,8 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
         order_num: exercises.length + 1,
         hint: "",
         show_solution: false,
-        required_keywords: []
+        required_keywords: [],
+        check_order: false
       });
     }
     setShowExerciseModal(true);
@@ -404,28 +386,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
 
       const data = await res.json();
       if (res.ok) {
-        if (!editingExercise && testCases.length > 0) {
-          const newExerciseId = data.exercise.exercise_id;
-          // Save all temp test cases
-          for (const tc of testCases) {
-            if (tc.is_temp) {
-              await fetch(`${API_BASE}/api/exercises/${newExerciseId}/test-cases`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  case_name: tc.case_name,
-                  golden_query: tc.golden_query,
-                  expected_output: tc.expected_output,
-                  points: tc.points,
-                  is_hidden: tc.is_hidden,
-                  required_keywords: tc.required_keywords || [],
-                  check_order: tc.check_order || false
-                })
-              });
-            }
-          }
-        }
-
         notify("success", editingExercise ? "แก้ไข Exercise สำเร็จ!" : "สร้าง Exercise สำเร็จ!");
         setShowExerciseModal(false);
         fetchExercises(selectedAssignment.assign_id);
@@ -539,255 +499,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
           }
         } catch (error) {
           console.error("Error deleting dataset:", error);
-        }
-      }
-    });
-  };
-
-  // Fetch Test Cases for an exercise
-  const fetchTestCases = async (exerciseId) => {
-    setLoadingTestCases(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/exercises/${exerciseId}/test-cases`);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setTestCases(data);
-      }
-    } catch (error) {
-      console.error("Error fetching test cases:", error);
-    } finally {
-      setLoadingTestCases(false);
-    }
-  };
-
-  // Preview Golden Query result
-  const handlePreviewGoldenQuery = async () => {
-    if (!testCaseForm.golden_query) {
-      alert("กรุณากรอก SQL Query ก่อน");
-      return;
-    }
-    const datasetId = exerciseForm.dataset_id;
-    if (!datasetId) {
-      alert("กรุณาเลือก Dataset ก่อน");
-      return;
-    }
-    setPreviewingGoldenQuery(true);
-    setGoldenQueryPreview(null);
-    try {
-      // Find dataset
-      const ds = datasets.find(d => String(d.dataset_id) === String(datasetId));
-      if (!ds) { alert("Dataset not found"); return; }
-      const result = await fetch(`${API_BASE}/api/datasets/${datasetId}/run-query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: testCaseForm.golden_query, schema_sql: ds.schema_sql, seed_data_sql: ds.seed_data_sql })
-      });
-      const data = await result.json();
-      setGoldenQueryPreview(data);
-    } catch (err) {
-      setGoldenQueryPreview({ error: err.message });
-    } finally {
-      setPreviewingGoldenQuery(false);
-    }
-  };
-
-  // Open Test Case Modal
-  const openTestCaseForm = (testCase = null) => {
-    setGoldenQueryPreview(null);
-    if (testCase) {
-      setEditingTestCase(testCase);
-      setTestCaseForm({
-        case_name: testCase.case_name || "",
-        golden_query: testCase.golden_query || "",
-        expected_output: typeof testCase.expected_output === "object"
-          ? JSON.stringify(testCase.expected_output, null, 2)
-          : testCase.expected_output || "",
-        points: testCase.points || 1,
-        is_hidden: testCase.is_hidden || false,
-        required_keywords: testCase.required_keywords || [],
-        check_order: testCase.check_order || false
-      });
-    } else {
-      setEditingTestCase(null);
-      setTestCaseForm({
-        case_name: `Test Case ${testCases.length + 1}`,
-        golden_query: exerciseForm.expected_query || "",
-        expected_output: "",
-        points: 1,
-        is_hidden: false,
-        required_keywords: [],
-        check_order: false
-      });
-    }
-    setShowTestCaseModal(true);
-  };
-
-  // Save Test Case
-  const handleSaveTestCase = async (e) => {
-    e.preventDefault();
-    if (!testCaseForm.case_name || !testCaseForm.golden_query) {
-      alert("กรุณากรอกชื่อและ SQL Query (SQL เฉลย)");
-      return;
-    }
-
-    // Auto-detect ORDER BY for check_order
-    const effectiveCheckOrder = !!testCaseForm.check_order;
-
-    // For temp saves, we store the golden_query and parse expected_output if available
-    let expectedOutputJson = null;
-    if (testCaseForm.expected_output) {
-      try {
-        expectedOutputJson = typeof testCaseForm.expected_output === "string"
-          ? JSON.parse(testCaseForm.expected_output)
-          : testCaseForm.expected_output;
-      } catch {
-        // Not valid JSON, that's OK for temp saves — the backend will generate it
-      }
-    }
-
-    setSaving(true);
-    try {
-      // สำหรับ create ใหม่ต้องมี exercise_id หรือเป็นโหมดสร้างใหม่ (เก็บลง state)
-      const exerciseId = editingExercise?.exercise_id;
-
-      // CASE 1: New Exercise (Temp Save)
-      if (!exerciseId) {
-        if (editingTestCase) {
-          // Edit Temp Case
-          setTestCases(testCases.map(tc =>
-            tc.case_id === editingTestCase.case_id
-              ? {
-                ...tc,
-                case_name: testCaseForm.case_name,
-                golden_query: testCaseForm.golden_query,
-                expected_output: expectedOutputJson,
-                points: testCaseForm.points,
-                is_hidden: testCaseForm.is_hidden,
-                required_keywords: testCaseForm.required_keywords,
-                check_order: effectiveCheckOrder
-              }
-              : tc
-          ));
-        } else {
-          // Add New Temp Case
-          const newTemp = {
-            case_id: `temp-${Date.now()}`,
-            case_name: testCaseForm.case_name,
-            golden_query: testCaseForm.golden_query,
-            expected_output: expectedOutputJson,
-            points: testCaseForm.points,
-            is_hidden: testCaseForm.is_hidden,
-            required_keywords: testCaseForm.required_keywords,
-            check_order: effectiveCheckOrder,
-            is_temp: true
-          };
-          setTestCases([...testCases, newTemp]);
-        }
-        setShowTestCaseModal(false);
-        setSaving(false);
-        return;
-      }
-
-      // CASE 2: Existing Exercise (Real DB Save)
-      if (editingTestCase) {
-        if (editingTestCase.is_temp) {
-          // Updating a temp case while in Edit Mode (shouldn't happen often but valid)
-          setTestCases(testCases.map(tc =>
-            tc.case_id === editingTestCase.case_id
-              ? {
-                ...tc,
-                case_name: testCaseForm.case_name,
-                golden_query: testCaseForm.golden_query,
-                expected_output: expectedOutputJson,
-                points: testCaseForm.points,
-                is_hidden: testCaseForm.is_hidden,
-                required_keywords: testCaseForm.required_keywords,
-                check_order: effectiveCheckOrder
-              }
-              : tc
-          ));
-          setShowTestCaseModal(false);
-          setSaving(false);
-          return;
-        }
-
-        // Update test case ที่มีอยู่
-        const res = await fetch(`${API_BASE}/api/test-cases/${editingTestCase.case_id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            case_name: testCaseForm.case_name,
-            golden_query: testCaseForm.golden_query,
-            points: testCaseForm.points,
-            is_hidden: testCaseForm.is_hidden,
-            required_keywords: testCaseForm.required_keywords,
-            check_order: effectiveCheckOrder
-          })
-        });
-        if (res.ok) {
-          notify("success", "แก้ไข Test Case สำเร็จ!");
-          setShowTestCaseModal(false);
-          fetchTestCases(exerciseId || editingTestCase.exercise_id);
-        } else {
-          const data = await res.json();
-          notify("error", data.error || "เกิดข้อผิดพลาด");
-        }
-      } else {
-        // Create new test case in DB
-        const res = await fetch(`${API_BASE}/api/exercises/${exerciseId}/test-cases`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            case_name: testCaseForm.case_name,
-            golden_query: testCaseForm.golden_query,
-            points: testCaseForm.points,
-            is_hidden: testCaseForm.is_hidden,
-            required_keywords: testCaseForm.required_keywords,
-            check_order: effectiveCheckOrder
-          })
-        });
-        if (res.ok) {
-          notify("success", "สร้าง Test Case สำเร็จ!");
-          setShowTestCaseModal(false);
-          fetchTestCases(exerciseId);
-        } else {
-          const data = await res.json();
-          notify("error", data.error || "เกิดข้อผิดพลาด");
-        }
-      }
-    } catch (error) {
-      console.error("Error saving test case:", error);
-      notify("error", "ไม่สามารถบันทึก Test Case ได้");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Delete Test Case
-  const handleDeleteTestCase = (caseId) => {
-    setConfirmModal({
-      title: "ยืนยันการลบ Test Case",
-      message: "ต้องการลบ Test Case นี้หรือไม่?",
-      type: "danger",
-      confirmText: "ลบ",
-      onConfirm: async () => {
-        try {
-          // Check if temp case
-          if (typeof caseId === 'string' && caseId.startsWith('temp-')) {
-            setTestCases(testCases.filter(tc => tc.case_id !== caseId));
-            notify("success", "ลบ Test Case สำเร็จ!");
-            return;
-          }
-
-          const res = await fetch(`${API_BASE}/api/test-cases/${caseId}`, { method: "DELETE" });
-          if (res.ok) {
-            notify("success", "ลบ Test Case สำเร็จ!");
-            setTestCases(testCases.filter(tc => tc.case_id !== caseId));
-          } else {
-            notify("error", "เกิดข้อผิดพลาดในการลบ");
-          }
-        } catch (error) {
-          console.error("Error deleting test case:", error);
         }
       }
     });
@@ -1430,59 +1141,40 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 </select>
               </div>
 
-              {/* Test Cases Section */}
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-semibold text-gray-700 flex items-center gap-1">
-                      <CheckCircle size={16} /> Test Cases ({testCases.length})
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => openTestCaseForm()}
-                      className="bg-teal-500 hover:bg-teal-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1"
-                    >
-                      เพิ่ม Test Case
-                    </button>
-                  </div>
-                  {loadingTestCases ? (
-                    <p className="text-sm text-gray-500">กำลังโหลด...</p>
-                  ) : testCases.length === 0 ? (
-                    <p className="text-sm text-gray-500">ยังไม่มี Test Case - กดปุ่ม "เพิ่ม Test Case" เพื่อสร้าง</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {testCases.map((tc) => (
-                        <div key={tc.case_id} className="flex items-center justify-between p-2 bg-white rounded border border-gray-200">
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-700">
-                              {tc.case_name || `Test Case #${tc.case_id}`}
-                            </span>
-                            {tc.is_hidden && (
-                              <span className="text-xs bg-gray-200 text-gray-600 px-1 py-0.5 rounded ml-2">ซ่อน</span>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openTestCaseForm(tc)}
-                              className="p-1 bg-yellow-500 text-white hover:bg-yellow-600 rounded"
-                              title="แก้ไข Test Case"
-                            >
-                              <Edit3 size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTestCase(tc.case_id)}
-                              className="p-1 bg-red-500 text-white hover:bg-red-600 rounded"
-                              title="ลบ Test Case"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {/* Golden Query (Expected Query) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  SQL เฉลย (Golden Query)
+                </label>
+                <textarea
+                  value={exerciseForm.expected_query}
+                  onChange={(e) => setExerciseForm({ ...exerciseForm, expected_query: e.target.value })}
+                  rows={4}
+                  placeholder="SELECT department, COUNT(*) FROM employees GROUP BY department"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ระบบจะเปรียบเทียบผลลัพธ์ของนักศึกษากับ SQL เฉลยนี้โดยอัตโนมัติ
+                </p>
+              </div>
+
+              {/* Check Order Toggle */}
+              <div className="p-3 bg-teal-50 rounded-lg border border-teal-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={exerciseForm.check_order}
+                    onChange={(e) => setExerciseForm({ ...exerciseForm, check_order: e.target.checked })}
+                    className="w-4 h-4 text-teal-600 rounded"
+                  />
+                  <span className="text-sm font-semibold text-teal-800">
+                    ตรวจลำดับผลลัพธ์ (Check Row Order)
+                    <span className="text-xs font-normal text-gray-500 block">
+                      เปิดเมื่อผลลัพธ์ต้องเรียงเหมือนเฉลยเป๊ะๆ (เช่นโจทย์ที่มี ORDER BY)
+                    </span>
+                  </span>
+                </label>
+              </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -1676,189 +1368,6 @@ export default function TeacherDashboard({ setIsLoggedIn, userEmail, userId }) {
                 <button
                   type="button"
                   onClick={() => setShowDatasetModal(false)}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg transition font-semibold"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition font-semibold disabled:bg-teal-300 flex items-center justify-center gap-2"
-                >
-                  {saving ? "กำลังบันทึก..." : "บันทึก"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* === TEST CASE MODAL === */}
-      {showTestCaseModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="bg-teal-600 text-white p-4 flex justify-between items-center">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <CheckCircle size={22} />
-                {editingTestCase ? "แก้ไข Test Case" : "สร้าง Test Case ใหม่"}
-              </h2>
-              <button onClick={() => setShowTestCaseModal(false)} className="hover:bg-white/20 p-1 rounded-full">
-                <X size={22} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveTestCase} className="p-6 space-y-4 overflow-y-auto">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  ชื่อ Test Case <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={testCaseForm.case_name}
-                  onChange={(e) => setTestCaseForm({ ...testCaseForm, case_name: e.target.value })}
-                  placeholder="เช่น Test Case 1"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  SQL Query (SQL เฉลย) <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={testCaseForm.golden_query}
-                  onChange={(e) => setTestCaseForm({ ...testCaseForm, golden_query: e.target.value })}
-                  rows={5}
-                  placeholder="SELECT department, COUNT(*) as count FROM employees GROUP BY department ORDER BY count DESC"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
-                  required
-                />
-                <div className="flex items-center justify-between mt-1">
-                  <div className="flex-grow"></div>
-                  <button
-                    type="button"
-                    onClick={handlePreviewGoldenQuery}
-                    disabled={previewingGoldenQuery || !testCaseForm.golden_query}
-                    className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded hover:bg-teal-200 disabled:opacity-50"
-                  >
-                    {previewingGoldenQuery ? "กำลังรัน..." : "ทดสอบรันผลลัพธ์"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Golden Query Preview Result */}
-              {goldenQueryPreview && (
-                 <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                   <label className="block text-xs font-semibold text-indigo-700 mb-1 flex items-center gap-1">
-                     <Play size={12}/> ผลการทดสอบจาก Dataset
-                   </label>
-                   {goldenQueryPreview.error ? (
-                     <p className="text-xs text-red-600 font-mono break-words">{goldenQueryPreview.error}</p>
-                   ) : (
-                     <div className="text-xs text-indigo-900 font-mono">
-                       <p>Columns: {goldenQueryPreview.columns?.join(', ')}</p>
-                       <p>Row count: {goldenQueryPreview.row_count}</p>
-                     </div>
-                   )}
-                 </div>
-              )}
-
-              {/* Expected Output Preview (auto-generated, readonly) */}
-              {testCaseForm.expected_output && (
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">
-                    Expected Output (สร้างอัตโนมัติจาก SQL Query)
-                  </label>
-                  <pre className="text-xs text-gray-600 font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
-                    {typeof testCaseForm.expected_output === "string" ? testCaseForm.expected_output : JSON.stringify(testCaseForm.expected_output, null, 2)}
-                  </pre>
-                </div>
-              )}
-              <div className="flex flex-col gap-3 pt-2 pb-2">
-                <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={testCaseForm.check_order}
-                    onChange={(e) => setTestCaseForm({ ...testCaseForm, check_order: e.target.checked })}
-                    className="w-4 h-4 text-teal-600 rounded"
-                  />
-                  <span className="text-sm font-semibold text-teal-800">
-                    ตรวจลำดับผลลัพธ์ (Check Row Order) 
-                    <span className="text-xs font-normal text-gray-500 block">เปิดเมื่อผลลัพธ์ต้องเรียงเหมือนเฉลยเป๊ะๆ (เช่นโจทย์ที่มี ORDER BY)</span>
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={testCaseForm.is_hidden}
-                    onChange={(e) => setTestCaseForm({ ...testCaseForm, is_hidden: e.target.checked })}
-                    className="w-4 h-4 text-gray-600 rounded"
-                  />
-                  <span className="text-sm text-gray-700">ซ่อนจากนักศึกษา (Hidden Test Case)</span>
-                </label>
-              </div>
-
-              {/* Required Keywords per Test Case */}
-              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <label className="block text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
-                  <Key size={14} />
-                  SQL Keywords (สำหรับ Test Case นี้)
-                </label>
-                <p className="text-xs text-amber-700 mb-2">
-                  กำหนดคำสั่ง SQL ที่ต้องใช้เพื่อผ่าน Test Case นี้ 
-                </p>
-
-                {/* Tags Display */}
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {(testCaseForm.required_keywords || []).map((kw, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-md text-xs font-semibold border border-amber-300"
-                    >
-                      {kw}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = testCaseForm.required_keywords.filter((_, i) => i !== idx);
-                          setTestCaseForm({ ...testCaseForm, required_keywords: updated });
-                        }}
-                        className="hover:bg-amber-200 rounded-full p-0.5 transition"
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-
-                {/* Preset Buttons */}
-                <div className="flex flex-wrap gap-1">
-                  {["WHERE", "AND", "OR", "JOIN", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "GROUP BY", "HAVING", "ORDER BY", "DISTINCT", "LIKE", "IN", "BETWEEN", "EXISTS", "UNION"].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      disabled={(testCaseForm.required_keywords || []).includes(preset)}
-                      onClick={() => {
-                        if (!(testCaseForm.required_keywords || []).includes(preset)) {
-                          setTestCaseForm({
-                            ...testCaseForm,
-                            required_keywords: [...(testCaseForm.required_keywords || []), preset]
-                          });
-                        }
-                      }}
-                      className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-amber-200 text-amber-700 rounded hover:bg-amber-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      + {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowTestCaseModal(false)}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg transition font-semibold"
                 >
                   ยกเลิก

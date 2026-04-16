@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 from psycopg2.extras import RealDictCursor
 from database import get_db_connection
-from utils import serialize_row, run_sql_on_sandbox, evaluate_test_cases, user_can_access_assignment
+from utils import serialize_row, run_sql_on_sandbox, evaluate_golden_query, user_can_access_assignment
 import json
 from datetime import datetime, timezone
 
@@ -108,6 +108,7 @@ async def create_exercise(assign_id: int, request: Request):
     hint = data.get("hint")
     show_solution = data.get("show_solution", False)
     required_keywords = data.get("required_keywords", [])
+    check_order = data.get("check_order", False)
 
     if not all([title, description]):
         return JSONResponse({"error": "Required fields: title, description"}, status_code=400)
@@ -151,10 +152,10 @@ async def create_exercise(assign_id: int, request: Request):
             cur.execute("UPDATE exercises SET order_num = %s WHERE exercise_id = %s", (default_order, conflict_ex['exercise_id']))
 
         cur.execute("""
-            INSERT INTO exercises (assign_id, dataset_id, title, description, expected_query, points, difficulty, order_num, hint, show_solution, required_keywords)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO exercises (assign_id, dataset_id, title, description, expected_query, points, difficulty, order_num, hint, show_solution, required_keywords, check_order)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
-        """, (assign_id, dataset_id, title, description, expected_query, points, difficulty, final_order, hint, show_solution, json.dumps(required_keywords)))
+        """, (assign_id, dataset_id, title, description, expected_query, points, difficulty, final_order, hint, show_solution, json.dumps(required_keywords), check_order))
         new_exercise = cur.fetchone()
         conn.commit()
         cur.close()
@@ -220,6 +221,9 @@ async def update_exercise(exercise_id: int, request: Request):
         if "required_keywords" in data:
             update_fields.append("required_keywords = %s")
             values.append(json.dumps(data["required_keywords"]))
+        if "check_order" in data:
+            update_fields.append("check_order = %s")
+            values.append(data["check_order"])
 
         if not update_fields:
             return JSONResponse({"error": "No fields to update"}, status_code=400)
@@ -303,235 +307,6 @@ async def delete_exercise(exercise_id: int):
         return JSONResponse({"success": True, "message": "Exercise deleted successfully"}, status_code=200)
     except Exception as e:
         print(f"Error deleting exercise: {e}")
-        try:
-            conn.rollback()
-            conn.close()
-        except Exception:
-            pass
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-# Get test cases for an exercise
-@router.get("/api/exercises/{exercise_id}/test-cases")
-def get_test_cases(exercise_id: int):
-    conn = get_db_connection()
-    if not conn:
-        return JSONResponse({"error": "Database connection failed"}, status_code=500)
-
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("""
-            SELECT * FROM test_cases
-            WHERE exercise_id = %s
-            ORDER BY case_id ASC
-        """, (exercise_id,))
-        test_cases = cur.fetchall()
-        cur.close()
-        conn.close()
-
-        return JSONResponse([serialize_row(tc) for tc in test_cases], status_code=200)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-# Create test case
-@router.post("/api/exercises/{exercise_id}/test-cases")
-async def create_test_case(exercise_id: int, request: Request):
-    try:
-        data = await request.json()
-    except Exception:
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
-
-    case_name = data.get("case_name", "Test Case")
-    expected_output = data.get("expected_output")
-    golden_query = data.get("golden_query")
-    points = data.get("points", 1)
-    is_hidden = data.get("is_hidden", False)
-    required_keywords = data.get("required_keywords", [])
-    check_order = data.get("check_order", False)
-
-    conn = get_db_connection()
-    if not conn:
-        return JSONResponse({"error": "Database connection failed"}, status_code=500)
-
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-
-        # Verify exercise exists and get dataset info
-        cur.execute("""
-            SELECT e.*, d.schema_sql, d.seed_data_sql
-            FROM exercises e
-            LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
-            WHERE e.exercise_id = %s
-        """, (exercise_id,))
-        exercise = cur.fetchone()
-        if not exercise:
-            cur.close()
-            conn.close()
-            return JSONResponse({"error": "Exercise not found"}, status_code=404)
-
-        # Golden Query mode: run the query to generate expected_output
-        if golden_query:
-            schema_sql = exercise.get("schema_sql") or ""
-            seed_sql = exercise.get("seed_data_sql") or ""
-            result = run_sql_on_sandbox(schema_sql, seed_sql, golden_query)
-            if "error" in result:
-                cur.close()
-                conn.close()
-                return JSONResponse({"success": False, "error": f"Golden Query error: {result['error']}"}, status_code=400)
-            expected_output = result
-
-        if not expected_output:
-            cur.close()
-            conn.close()
-            return JSONResponse({"error": "expected_output or golden_query is required"}, status_code=400)
-
-        # Convert expected_output to JSON string if it's a dict
-        if isinstance(expected_output, dict):
-            expected_output_json = json.dumps(expected_output)
-        else:
-            expected_output_json = expected_output
-
-        cur.execute("""
-            INSERT INTO test_cases (exercise_id, case_name, expected_output, points, is_hidden, required_keywords, golden_query, check_order)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING *
-        """, (exercise_id, case_name, expected_output_json, points, is_hidden, json.dumps(required_keywords), golden_query, check_order))
-        new_test_case = cur.fetchone()
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        return JSONResponse({"success": True, "test_case": serialize_row(new_test_case)}, status_code=201)
-    except Exception as e:
-        print(f"Error creating test case: {e}")
-        try:
-            conn.rollback()
-            conn.close()
-        except Exception:
-            pass
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-# Update test case
-@router.put("/api/test-cases/{case_id}")
-async def update_test_case(case_id: int, request: Request):
-    try:
-        data = await request.json()
-    except Exception:
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
-
-    conn = get_db_connection()
-    if not conn:
-        return JSONResponse({"error": "Database connection failed"}, status_code=500)
-
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-
-        # If golden_query is provided, we need to re-run it to regenerate expected_output
-        golden_query = data.get("golden_query")
-        if golden_query:
-            # Get the exercise's dataset info via the test case
-            cur.execute("""
-                SELECT e.*, d.schema_sql, d.seed_data_sql
-                FROM test_cases tc
-                JOIN exercises e ON tc.exercise_id = e.exercise_id
-                LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
-                WHERE tc.case_id = %s
-            """, (case_id,))
-            exercise = cur.fetchone()
-            if not exercise:
-                cur.close()
-                conn.close()
-                return JSONResponse({"error": "Test case or exercise not found"}, status_code=404)
-
-            schema_sql = exercise.get("schema_sql") or ""
-            seed_sql = exercise.get("seed_data_sql") or ""
-            result = run_sql_on_sandbox(schema_sql, seed_sql, golden_query)
-            if "error" in result:
-                cur.close()
-                conn.close()
-                return JSONResponse({"success": False, "error": f"Golden Query error: {result['error']}"}, status_code=400)
-
-            # Auto-set expected_output and check_order from golden query
-            data["expected_output"] = result
-
-        update_fields = []
-        values = []
-
-        if "case_name" in data:
-            update_fields.append("case_name = %s")
-            values.append(data["case_name"])
-        if "expected_output" in data:
-            update_fields.append("expected_output = %s")
-            if isinstance(data["expected_output"], dict):
-                values.append(json.dumps(data["expected_output"]))
-            else:
-                values.append(data["expected_output"])
-        if "points" in data:
-            update_fields.append("points = %s")
-            values.append(data["points"])
-        if "is_hidden" in data:
-            update_fields.append("is_hidden = %s")
-            values.append(data["is_hidden"])
-        if "required_keywords" in data:
-            update_fields.append("required_keywords = %s")
-            values.append(json.dumps(data["required_keywords"]))
-        if "golden_query" in data:
-            update_fields.append("golden_query = %s")
-            values.append(data["golden_query"])
-        if "check_order" in data:
-            update_fields.append("check_order = %s")
-            values.append(data["check_order"])
-
-        if not update_fields:
-            return JSONResponse({"error": "No fields to update"}, status_code=400)
-
-        values.append(case_id)
-        query = f"UPDATE test_cases SET {', '.join(update_fields)} WHERE case_id = %s RETURNING *"
-
-        cur.execute(query, values)
-        updated = cur.fetchone()
-
-        if not updated:
-            cur.close()
-            conn.close()
-            return JSONResponse({"error": "Test case not found"}, status_code=404)
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        return JSONResponse({"success": True, "test_case": serialize_row(updated)}, status_code=200)
-    except Exception as e:
-        print(f"Error updating test case: {e}")
-        try:
-            conn.rollback()
-            conn.close()
-        except Exception:
-            pass
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-# Delete test case
-@router.delete("/api/test-cases/{case_id}")
-async def delete_test_case(case_id: int):
-    conn = get_db_connection()
-    if not conn:
-        return JSONResponse({"error": "Database connection failed"}, status_code=500)
-
-    try:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM test_cases WHERE case_id = %s RETURNING case_id", (case_id,))
-        deleted = cur.fetchone()
-
-        if not deleted:
-            cur.close()
-            conn.close()
-            return JSONResponse({"error": "Test case not found"}, status_code=404)
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        return JSONResponse({"success": True, "message": "Test case deleted"}, status_code=200)
-    except Exception as e:
         try:
             conn.rollback()
             conn.close()
@@ -627,13 +402,8 @@ async def run_exercise_test(exercise_id: int, request: Request):
             conn.close()
             return JSONResponse({"error": "Assignment has expired. หมดเวลาแล้ว"}, status_code=403)
 
-        # Get test cases
-        cur.execute("""
-            SELECT * FROM test_cases
-            WHERE exercise_id = %s
-            ORDER BY case_id
-        """, (exercise_id,))
-        test_cases = cur.fetchall()
+        golden_query = exercise.get("expected_query") or ""
+        check_order = exercise.get("check_order", False)
 
         cur.close()
         conn.close()
@@ -651,11 +421,18 @@ async def run_exercise_test(exercise_id: int, request: Request):
         if "error" in student_result:
             return JSONResponse({"success": False, "error": student_result["error"]}, status_code=400)
 
-        # Evaluate test cases (with keyword check and sqlcheck)
+        # Evaluate using golden query equivalence
         required_keywords = exercise.get("required_keywords") or []
         if isinstance(required_keywords, str):
             required_keywords = json.loads(required_keywords)
-        test_results = evaluate_test_cases(student_result, test_cases, required_keywords=required_keywords, student_query=query, exercise_points=exercise.get("points", 0), sandbox_name=sandbox_name)
+        test_results = evaluate_golden_query(
+            student_query=query,
+            golden_query=golden_query,
+            check_order=check_order,
+            required_keywords=required_keywords,
+            exercise_points=exercise.get("points", 0),
+            sandbox_name=sandbox_name,
+        )
 
         # Return combined result
         return JSONResponse({
@@ -670,86 +447,6 @@ async def run_exercise_test(exercise_id: int, request: Request):
 
     except Exception as e:
         print(f"Error running exercise test: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-# Generate test case from expected_query
-@router.post("/api/exercises/{exercise_id}/generate-test-case")
-async def generate_test_case(exercise_id: int, request: Request):
-    try:
-        data = await request.json()
-    except Exception:
-        data = {}
-
-    case_name = data.get("case_name", "Auto-generated Test")
-    points = data.get("points", 10)
-    is_hidden = data.get("is_hidden", False)
-
-    conn = get_db_connection()
-    if not conn:
-        return JSONResponse({"error": "Database connection failed"}, status_code=500)
-
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-
-        # ดึงข้อมูล exercise พร้อมกับ ข้อมูลของ dataset
-        cur.execute("""
-            SELECT e.*, d.schema_sql, d.seed_data_sql
-            FROM exercises e
-            LEFT JOIN datasets d ON e.dataset_id = d.dataset_id
-            WHERE e.exercise_id = %s
-        """, (exercise_id,))
-        exercise = cur.fetchone()
-
-        if not exercise:
-            cur.close()
-            conn.close()
-            return JSONResponse({"error": "Exercise not found"}, status_code=404)
-
-        expected_query = exercise.get("expected_query")
-        schema_sql = exercise.get("schema_sql") or ""
-        seed_sql = exercise.get("seed_data_sql") or ""
-
-        if not expected_query:
-            cur.close()
-            conn.close()
-            return JSONResponse({"error": "Exercise has no expected_query"}, status_code=400)
-
-        # Run the expected query on sandbox
-        result = run_sql_on_sandbox(schema_sql, seed_sql, expected_query)
-
-        if "error" in result:
-            cur.close()
-            conn.close()
-            return JSONResponse({"success": False, "error": result["error"]}, status_code=400)
-
-        # Save as test case
-        import json
-        expected_output_json = json.dumps(result)
-
-        cur.execute("""
-            INSERT INTO test_cases (exercise_id, case_name, expected_output, points, is_hidden)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING *
-        """, (exercise_id, case_name, expected_output_json, points, is_hidden))
-
-        new_test_case = cur.fetchone()
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        return JSONResponse({
-            "success": True,
-            "test_case": serialize_row(new_test_case),
-            "result": result
-        }, status_code=201)
-
-    except Exception as e:
-        print(f"Error generating test case: {e}")
-        try:
-            conn.rollback()
-            conn.close()
-        except Exception:
-            pass
         return JSONResponse({"error": str(e)}, status_code=500)
 
 # Submit Exercise Solution
@@ -797,18 +494,13 @@ async def submit_exercise(exercise_id: int, request: Request):
             conn.close()
             return JSONResponse({"error": "Assignment has expired. หมดเวลาแล้ว"}, status_code=403)
 
-        # Get test cases
-        cur.execute("""
-            SELECT * FROM test_cases
-            WHERE exercise_id = %s
-            ORDER BY case_id
-        """, (exercise_id,))
-        test_cases = cur.fetchall()
+        golden_query = exercise.get("expected_query") or ""
+        check_order = exercise.get("check_order", False)
 
-        if not test_cases:
+        if not golden_query:
             cur.close()
             conn.close()
-            return JSONResponse({"error": "No test cases found for this exercise"}, status_code=400)
+            return JSONResponse({"error": "No golden query (expected_query) defined for this exercise"}, status_code=400)
 
         schema_sql = exercise.get("schema_sql") or ""
         seed_sql = exercise.get("seed_data_sql") or ""
@@ -850,14 +542,20 @@ async def submit_exercise(exercise_id: int, request: Request):
                 **submission_result
             }, status_code=200)
 
-
         import json
-        
-        # Use existing helper (with keyword check and sql equivalence)
+
+        # Evaluate using golden query equivalence
         required_keywords = exercise.get("required_keywords") or []
         if isinstance(required_keywords, str):
             required_keywords = json.loads(required_keywords)
-        test_evaluation = evaluate_test_cases(student_result, test_cases, required_keywords=required_keywords, student_query=query, exercise_points=exercise.get("points", 0), sandbox_name=sandbox_name)
+        test_evaluation = evaluate_golden_query(
+            student_query=query,
+            golden_query=golden_query,
+            check_order=check_order,
+            required_keywords=required_keywords,
+            exercise_points=exercise.get("points", 0),
+            sandbox_name=sandbox_name,
+        )
         
         # drop sandbox หลังจาก ตรวจเสร็จ
         drop_persistent_sandbox(sandbox_name)
