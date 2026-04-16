@@ -34,14 +34,19 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin", u
                 : "http://localhost:5000/api/users";
             if (!endpoint) { setUsers([]); return; }
             const response = await fetch(endpoint);
-            const data = await response.json();
-            const usersData = Array.isArray(data)
-                ? data.slice().sort((a, b) => String(a.user_id).localeCompare(String(b.user_id)))
-                : data;
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !Array.isArray(data)) {
+                console.error("fetchUsers failed:", response.status, data);
+                setUsers([]);
+                return;
+            }
+            const usersData = data.slice().sort(
+                (a, b) => String(a.user_id).localeCompare(String(b.user_id))
+            );
             setUsers(usersData);
         } catch (error) {
             console.error("Error fetching users:", error);
-            alert("ไม่สามารถดึงข้อมูลผู้ใช้ได้");
+            setUsers([]);
         } finally {
             setLoading(false);
         }
@@ -166,29 +171,27 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin", u
                     </button>
                 </div>
 
-                <div className="px-6 pt-4 flex gap-3 shrink-0">
-                    {isTeacher ? (
+                <div className="px-6 pt-4 flex gap-3 shrink-0 flex-wrap">
+                    <button
+                        onClick={() => setShowAddUserModal(true)}
+                        className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition font-semibold"
+                    >
+                        <UserPlus size={16} /> เพิ่มผู้ใช้
+                    </button>
+                    <button
+                        onClick={() => setShowBulkUploadModal(true)}
+                        className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition font-semibold"
+                    >
+                        <Upload size={16} /> อัปโหลด Excel
+                    </button>
+                    {isTeacher && (
                         <button
                             onClick={openPicker}
-                            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition font-semibold"
+                            className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition font-semibold"
+                            title="เพิ่มนักศึกษาที่มีอยู่แล้วในระบบเข้ารายการ"
                         >
-                            <UserPlus size={16} /> เพิ่มนักศึกษาเข้ารายการของฉัน
+                            <Plus size={16} /> เพิ่มจากรายการที่มีอยู่
                         </button>
-                    ) : (
-                        <>
-                            <button
-                                onClick={() => setShowAddUserModal(true)}
-                                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition font-semibold"
-                            >
-                                เพิ่มผู้ใช้
-                            </button>
-                            <button
-                                onClick={() => setShowBulkUploadModal(true)}
-                                className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition font-semibold"
-                            >
-                                อัปโหลด Excel
-                            </button>
-                        </>
                     )}
                 </div>
 
@@ -265,23 +268,20 @@ export default function UserManagementModal({ isOpen, onClose, mode = "admin", u
                 </div>
             </div>
 
-            {/* Admin sub-modals */}
-            {!isTeacher && (
-                <>
-                    <AddUserModal
-                        isOpen={showAddUserModal}
-                        onClose={() => setShowAddUserModal(false)}
-                        onUserAdded={fetchUsers}
-                        mode={mode}
-                    />
-                    <BulkUploadModal
-                        isOpen={showBulkUploadModal}
-                        onClose={() => setShowBulkUploadModal(false)}
-                        onUploadComplete={fetchUsers}
-                        mode={mode}
-                    />
-                </>
-            )}
+            <AddUserModal
+                isOpen={showAddUserModal}
+                onClose={() => setShowAddUserModal(false)}
+                onUserAdded={fetchUsers}
+                mode={mode}
+                teacherId={userId}
+            />
+            <BulkUploadModal
+                isOpen={showBulkUploadModal}
+                onClose={() => setShowBulkUploadModal(false)}
+                onUploadComplete={fetchUsers}
+                mode={mode}
+                teacherId={userId}
+            />
 
             {/* Teacher roster picker */}
             {isTeacher && showPicker && (

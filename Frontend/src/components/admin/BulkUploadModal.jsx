@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Upload, X } from "lucide-react";
 
-export default function BulkUploadModal({ isOpen, onClose, onUploadComplete, mode = "admin" }) {
+export default function BulkUploadModal({ isOpen, onClose, onUploadComplete, mode = "admin", teacherId }) {
     const [uploadFile, setUploadFile] = useState(null);
     const [uploadResult, setUploadResult] = useState(null);
     const [uploading, setUploading] = useState(false);
@@ -22,8 +22,8 @@ export default function BulkUploadModal({ isOpen, onClose, onUploadComplete, mod
             const formData = new FormData();
             formData.append('file', uploadFile);
 
-            const endpoint = mode === 'teacher' 
-                ? 'http://localhost:5000/api/users/bulk-upload?force_student=true' 
+            const endpoint = mode === 'teacher'
+                ? `http://localhost:5000/api/users/bulk-upload?force_student=true${teacherId ? `&teacher_id=${encodeURIComponent(teacherId)}` : ''}`
                 : 'http://localhost:5000/api/users/bulk-upload';
 
             const response = await fetch(endpoint, {

@@ -22,7 +22,7 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS teacher_students (
     teacher_id  VARCHAR(20) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     student_id  VARCHAR(20) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    added_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    added_at    TIMESTAMP NOT NULL DEFAULT now(),
     PRIMARY KEY (teacher_id, student_id)
 );
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { UserPlus, X } from "lucide-react";
 
-export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "admin" }) {
+export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "admin", teacherId }) {
     const [newUserId, setNewUserId] = useState("");
     const [newName, setNewName] = useState("");
     const [newSurname, setNewSurname] = useState("");
@@ -31,7 +31,8 @@ export default function AddUserModal({ isOpen, onClose, onUserAdded, mode = "adm
                     name: newName.trim(),
                     surname: newSurname.trim(),
                     email: newUserEmail.trim(),
-                    role: mode === 'teacher' ? 'student' : newUserRole
+                    role: mode === 'teacher' ? 'student' : newUserRole,
+                    ...(mode === 'teacher' && teacherId ? { teacher_id: teacherId } : {}),
                 }),
             });
 

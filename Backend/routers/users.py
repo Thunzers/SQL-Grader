@@ -103,6 +103,7 @@ async def add_single_user(request: Request):
     surname = data.get("surname")
     email = data.get("email")
     role = data.get("role", "student")
+    teacher_id = data.get("teacher_id")  # optional: auto-link to roster
 
     # Validation
     if not all([user_id, name, surname, email]):
@@ -137,8 +138,16 @@ async def add_single_user(request: Request):
         """, (user_id, name, surname, email, role))
 
         new_user = cur.fetchone()
-        conn.commit()
 
+        # Auto-link to teacher's roster when requested.
+        if teacher_id and new_user[4] == "student":
+            cur.execute(
+                "INSERT INTO teacher_students (teacher_id, student_id) "
+                "VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (teacher_id, new_user[0]),
+            )
+
+        conn.commit()
         cur.close()
         conn.close()
 
@@ -164,7 +173,11 @@ async def add_single_user(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.post("/api/users/bulk-upload")
-async def bulk_upload_users(file: UploadFile = File(...), force_student: bool = False):
+async def bulk_upload_users(
+    file: UploadFile = File(...),
+    force_student: bool = False,
+    teacher_id: str = None,
+):
     # Validate file type
     if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
         return JSONResponse({"error": "File must be an Excel file (.xlsx, .xls) or CSV (.csv)"}, status_code=400)
@@ -174,7 +187,9 @@ async def bulk_upload_users(file: UploadFile = File(...), force_student: bool = 
         contents = await file.read()
 
         if file.filename.endswith('.csv'):
-            encodings_to_try = ['utf-8', 'utf-8-sig', 'tis-620', 'cp1252']
+            # utf-8-sig goes first so Excel-exported CSVs (which include a
+            # BOM) don't leave \ufeff attached to the first column header.
+            encodings_to_try = ['utf-8-sig', 'utf-8', 'tis-620', 'cp1252']
             df = None
             last_error = None
             
@@ -193,12 +208,18 @@ async def bulk_upload_users(file: UploadFile = File(...), force_student: bool = 
         else:
             df = pd.read_excel(io.BytesIO(contents))
 
+        # Normalize header names: strip whitespace + BOM, lowercase.
+        df.columns = [str(c).strip().lstrip('\ufeff').lower() for c in df.columns]
+
         # Validate required columns
         required_columns = ['user_id', 'name', 'surname', 'email']
 
         if not all(col in df.columns for col in required_columns):
             return JSONResponse({
-                "error": f"Excel file must contain columns: {', '.join(required_columns)}. Optional: 'role'"
+                "error": (
+                    f"Excel file must contain columns: {', '.join(required_columns)}. "
+                    f"Optional: 'role'. Got columns: {list(df.columns)}"
+                )
             }, status_code=400)
 
         # Clean and prepare data
@@ -274,6 +295,15 @@ async def bulk_upload_users(file: UploadFile = File(...), force_student: bool = 
                 """, (user_id, name, surname, email, role))
 
                 new_user_id = cur.fetchone()[0]
+
+                # Auto-link to teacher's roster when requested.
+                if teacher_id and role == "student":
+                    cur.execute(
+                        "INSERT INTO teacher_students (teacher_id, student_id) "
+                        "VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                        (teacher_id, new_user_id),
+                    )
+
                 conn.commit()
 
                 added_users.append({

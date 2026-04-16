@@ -154,19 +154,66 @@ def get_assignments(category: str = None, user_id: str = None):
             params["cat_id"] = int(category)
 
         if user_role == "student":
-            access_sql = """
-                AND a.assign_id IN (
-                    SELECT ca.assign_id
-                      FROM class_students cs
-                      JOIN class_assignments ca ON ca.class_id = cs.class_id
-                     WHERE cs.user_id = %(access_uid)s
+            # Students get one row per (class, assignment) pair so the
+            # dashboard can group by class. Individual overrides show
+            # up with class_id = NULL.
+            category_where = "AND a.category_id = %(cat_id)s" if category else ""
+            student_query = f"""
+                WITH access AS (
+                    SELECT ca.assign_id,
+                           c.class_id, c.code AS class_code, c.name AS class_name
+                    FROM   class_students cs
+                    JOIN   classes c           ON c.class_id = cs.class_id
+                    JOIN   class_assignments ca ON ca.class_id = c.class_id
+                    WHERE  cs.user_id = %(access_uid)s
                     UNION
-                    SELECT asg.assign_id
-                      FROM assignment_students asg
-                     WHERE asg.user_id = %(access_uid)s
+                    SELECT asg.assign_id,
+                           NULL::int     AS class_id,
+                           NULL::varchar AS class_code,
+                           NULL::varchar AS class_name
+                    FROM   assignment_students asg
+                    WHERE  asg.user_id = %(access_uid)s
+                ),
+                AssignInfo AS (
+                    SELECT a.*, cat.name AS category_name,
+                           acc.class_id, acc.class_code, acc.class_name,
+                           COUNT(e.exercise_id)            AS exercise_count,
+                           COALESCE(SUM(e.points), 0)      AS max_score
+                    FROM   assignments a
+                    JOIN   access       acc ON acc.assign_id = a.assign_id
+                    LEFT  JOIN categories cat ON cat.category_id = a.category_id
+                    LEFT  JOIN exercises  e   ON e.assign_id     = a.assign_id
+                    WHERE  a.is_active = TRUE
+                      {category_where}
+                    GROUP BY a.assign_id, cat.name,
+                             acc.class_id, acc.class_code, acc.class_name
                 )
+                SELECT ai.*,
+                       COALESCE(sub.user_score, 0)          AS user_score,
+                       COALESCE(sub.completed_exercises, 0) AS completed_exercises
+                FROM   AssignInfo ai
+                LEFT  JOIN (
+                    SELECT e.assign_id,
+                           SUM(s.total_score)   AS user_score,
+                           COUNT(s.exercise_id) AS completed_exercises
+                    FROM (
+                        SELECT exercise_id,
+                               MAX(total_score)    AS total_score,
+                               bool_or(is_correct) AS is_correct
+                        FROM   submissions
+                        WHERE  user_id = %(sub_uid)s
+                        GROUP  BY exercise_id
+                    ) s
+                    JOIN   exercises e ON s.exercise_id = e.exercise_id
+                    WHERE  s.total_score > 0 OR s.is_correct = TRUE
+                    GROUP  BY e.assign_id
+                ) sub ON ai.assign_id = sub.assign_id
+                ORDER BY ai.class_code NULLS LAST, ai.created_at DESC
             """
-            active_sql = "AND a.is_active = TRUE"
+            cur.execute(student_query, params)
+            assignments = cur.fetchall()
+            cur.close(); conn.close()
+            return JSONResponse([serialize_row(a) for a in assignments], status_code=200)
         elif user_role == "teacher":
             access_sql = """
                 AND (a.created_by = %(access_uid)s
